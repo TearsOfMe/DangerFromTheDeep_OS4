@@ -1,5 +1,7 @@
 #include "faulthandler.h"
 
+#if !((defined(__APPLE__) && defined(__MACH__)) || defined(MINGW32) || defined(WIN32) || defined(__amigaos4__))
+
 #include <cxxabi.h> // Needed for __cxa_demangle
 #include <execinfo.h>
 #include <iostream>
@@ -100,3 +102,5 @@ void install_segfault_handler() {
 
     signal(SIGSEGV, sigsegv_handler);
 }
+
+#endif

@@ -1100,6 +1100,7 @@ texture3d::texture3d(const std::vector<Uint8> &pixels, unsigned w, unsigned h, u
         }
     }
 
+#if !defined(__amigaos4__)
     glTexImage3D(GL_TEXTURE_3D, 0, internalformat, gl_width, gl_height, gl_depth, 0, format,
                  GL_UNSIGNED_BYTE, &pixels[0]);
 
@@ -1119,6 +1120,9 @@ texture3d::texture3d(const std::vector<Uint8> &pixels, unsigned w, unsigned h, u
                           format, GL_UNSIGNED_BYTE, &pixels[0]);
 #endif
     }
+#else
+    throw texerror(get_name(), "3D textures not supported on AmigaOS");
+#endif
 
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, mapmodes[mapping]);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, magfilter[mapping]);
@@ -1170,16 +1174,22 @@ texture3d::texture3d(unsigned w, unsigned h, unsigned d,
     if (use_anisotropic_filtering)
         glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropic_level);
 
+#if !defined(__amigaos4__)
     glTexImage3D(GL_TEXTURE_3D, 0, format, w, h, d, 0, GL_RGB,
                  GL_UNSIGNED_BYTE, (void *)0);
+#else
+    throw texerror(get_name(), "3D textures not supported on AmigaOS");
+#endif
     glBindTexture(GL_TEXTURE_3D, 0);
 }
 
 void texture3d::sub_image(int xoff, int yoff, int zoff, unsigned w, unsigned h, unsigned d,
                           const std::vector<Uint8> &pixels, int format_) {
     glBindTexture(GL_TEXTURE_3D, opengl_name);
+#if !defined(__amigaos4__)
     glTexSubImage3D(GL_TEXTURE_3D, 0 /* mipmap level */,
                     xoff, yoff, zoff, w, h, d, format_, GL_UNSIGNED_BYTE, &pixels[0]);
+#endif
     glBindTexture(GL_TEXTURE_3D, 0);
 }
 

@@ -327,7 +327,11 @@ target_precompile_headers(dangerdeep PRIVATE
 	"model.h"
 )
 
-target_link_libraries(dangerdeep ${LIBS})
+if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+	target_link_libraries(dangerdeep PRIVATE -Wl,--start-group ${LIBS} -Wl,--end-group)
+else()
+	target_link_libraries(dangerdeep ${LIBS})
+endif()
 
 # Herramienta viewmodel: visor de modelos .mdl (usa mymain con VIEWMODEL)
 option(BUILD_VIEWMODEL "Build viewmodel tool (model viewer)" OFF)

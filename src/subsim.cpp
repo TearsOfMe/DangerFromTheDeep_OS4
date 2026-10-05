@@ -64,6 +64,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "dftdtester/tests.h"
 #endif
 
+#ifdef __amigaos4__
+static const char* __attribute__((used)) stack_cookie = "$STACK: 4194304\n";
+#endif
+
 using std::unique_ptr;
 
 /* fixme: 2006/12/02
@@ -109,10 +113,12 @@ void menu_notimplemented() {
 // save game directory and helper functions
 //
 string savegamedirectory =
-#ifdef WIN32
+#if defined(__amigaos4__)
+    "PROGDIR:save/";
+#elif defined(WIN32)
     "./save/";
 #else
-    string(getenv("HOME")) + "/.dangerdeep/";
+    (getenv("HOME") ? (string(getenv("HOME")) + "/.dangerdeep/") : "./save/");
 #endif
 
 string get_savegame_name_for(const string &descr, map<string, string> &savegames) {
@@ -1599,19 +1605,30 @@ bool set_dir(const string &dir, string &setdir) {
 int mymain(list<string> &args) {
     // report critical errors (on Unix/Posix systems)
     install_segfault_handler();
+
+#ifdef __amigaos4__
+    if (!is_directory(get_data_dir()) && is_directory("PROGDIR:data/")) {
+        set_data_dir("PROGDIR:data/");
+    }
+#endif
+
     string highscoredirectory =
-#ifdef WIN32
+#if defined(__amigaos4__)
+        "PROGDIR:highscores/";
+#elif defined(WIN32)
         "./highscores/";
 #else
         // fixme: use global /var/games instead
-        string(getenv("HOME")) + "/.dangerdeep/";
+        (getenv("HOME") ? (string(getenv("HOME")) + "/.dangerdeep/") : "./highscores/");
 #endif
 
     string configdirectory =
-#ifdef WIN32
+#if defined(__amigaos4__)
+        "PROGDIR:config/";
+#elif defined(WIN32)
         "./config/";
 #else
-        string(getenv("HOME")) + "/.dangerdeep/";
+        (getenv("HOME") ? (string(getenv("HOME")) + "/.dangerdeep/") : "./config/");
 #endif
     // command line argument parsing
     unsigned res_x = 0, res_y = 0;
@@ -1638,7 +1655,7 @@ int mymain(list<string> &args) {
                  << "--savegamedir path\tdirectory for savegames, default path depends on platform\n"
                  << "--highscoredir path\tdirectory for highscores, default path depends on platform\n"
                  << "--configdir path\tdirectory for configuration data, default path depends on platform\n"
-#if !(defined(WIN32) || (defined(__APPLE__) && defined(__MACH__)))
+#if !(defined(WIN32) || (defined(__APPLE__) && defined(__MACH__)) || defined(__amigaos4__))
                  << "--vsync\tsync to vertical retrace signal (for nvidia cards)\n"
 #endif
                  << "--maxfps x\tset maximum fps to x frames per second (default 60). Use x=0 to disable fps limit.\n"
@@ -1764,7 +1781,7 @@ int mymain(list<string> &args) {
                 override_lang = true;
                 ++it;
             }
-#if !(defined(WIN32) || (defined(__APPLE__) && defined(__MACH__)))
+#if !(defined(WIN32) || (defined(__APPLE__) && defined(__MACH__)) || defined(__amigaos4__))
         } else if (*it == "--vsync") {
             if (putenv((char *)"__GL_SYNC_TO_VBLANK=1") < 0)
                 cout << "ERROR: vsync setting failed.\n";

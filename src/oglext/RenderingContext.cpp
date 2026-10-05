@@ -24,6 +24,10 @@
 
 #include <stdio.h>
 
+#if defined(__amigaos4__)
+#include <SDL.h>
+#endif
+
 // =============================================================================================================
 // ===                                C L A S S   A D M I N I S T R A T I O N                                ===
 // =============================================================================================================
@@ -242,6 +246,20 @@ void *CRenderingContext::GetProcAddress(char const *szFunction) {
 
     delete[] szNewFunction;
 
+    return pProcAddress;
+
+#elif defined(__amigaos4__)
+
+    char *szNewFunction = new char[strlen(szFunction) + 3];
+    if (!szNewFunction) {
+        return NULL;
+    }
+    szNewFunction[0] = 'g';
+    szNewFunction[1] = 'l';
+    strcpy(&szNewFunction[2], szFunction);
+
+    void *pProcAddress = ::SDL_GL_GetProcAddress(szNewFunction);
+    delete[] szNewFunction;
     return pProcAddress;
 
 #else

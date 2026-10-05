@@ -17,7 +17,7 @@
 #ifndef _OGL_MACROS_H_
 #define _OGL_MACROS_H_
 
-#if !defined(_WIN32) && (!defined(__APPLE__) || !defined(__GNUC__)) && !defined(__MACOSX__)
+#if !defined(_WIN32) && (!defined(__APPLE__) || !defined(__GNUC__)) && !defined(__MACOSX__) && !defined(__amigaos4__)
 
 #include <GL/glx.h>
 

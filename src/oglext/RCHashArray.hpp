@@ -24,7 +24,7 @@
 #include <windows.h>
 #endif
 
-#if !defined(_WIN32) && (!defined(__APPLE__) || !defined(__GNUC__)) && !defined(__MACOSX__)
+#if !defined(_WIN32) && (!defined(__APPLE__) || !defined(__GNUC__)) && !defined(__MACOSX__) && !defined(__amigaos4__)
 #include <GL/glx.h>
 #endif
 
@@ -84,6 +84,11 @@ class CRCHashArray {
 
     CRenderingContext *GetRenderingContext(HRCKEY hRCKey = ::aglGetCurrentContext());     //  return rc
     CRenderingContext *PrepareRenderingContext(HRCKEY hRCKey = ::aglGetCurrentContext()); //  create rc
+
+#elif defined(__amigaos4__)
+
+    CRenderingContext *GetRenderingContext(HRCKEY hRCKey = (HRCKEY)1);     //  return rc
+    CRenderingContext *PrepareRenderingContext(HRCKEY hRCKey = (HRCKEY)1); //  create rc
 
 #else // _WIN32
 

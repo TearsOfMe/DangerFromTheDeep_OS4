@@ -29,15 +29,22 @@ option(BUILD_COVERAGE "Build con cobertura de código (gcov/lcov, requiere Debug
 
 if(NOT USE_CLANG)
 	message(STATUS "CMAKE_CXX_COMPILER: ${CMAKE_CXX_COMPILER}")
-	set(MARCH_FLAG "-march=native")
-	if(BUILD_VALGRIND_FRIENDLY)
-		set(MARCH_FLAG "-march=x86-64")
-		message(STATUS "Build compatible con Valgrind (sin -march=native)")
+	if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+		set(MARCH_FLAG "")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -athread=native")
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -athread=native")
+		set(CMAKE_LINKER_FLAGS "")
+	else()
+		set(MARCH_FLAG "-march=native")
+		if(BUILD_VALGRIND_FRIENDLY)
+			set(MARCH_FLAG "-march=x86-64")
+			message(STATUS "Build compatible con Valgrind (sin -march=native)")
+		endif()
+		set(CMAKE_LINKER_FLAGS "--export-dynamic")
 	endif()
 	set(CMAKE_CXX_FLAGS_RELEASE "-Wall ${MARCH_FLAG} -O3")
 	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-Wall ${MARCH_FLAG} -g -O2")
 	set(CMAKE_CXX_FLAGS_DEBUG "-Wall -g -Og -DDEBUG")
-	set(CMAKE_LINKER_FLAGS "--export-dynamic")
 else()
 	set(CMAKE_C_COMPILER "clang")
 	set(CMAKE_CXX_COMPILER "clang++")
@@ -145,7 +152,20 @@ message(STATUS "FFTW_LIBRARY:           ${FFTW_LIBRARIES}")
 
 #------------------------------------
 
-find_package(TinyXML REQUIRED)
+find_package(TinyXML)
+if(NOT TINYXML_FOUND)
+	message(STATUS "Using bundled TinyXML from src/tinyxml")
+	set(TINYXML_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/tinyxml")
+	add_library(tinyxml STATIC
+		"${CMAKE_SOURCE_DIR}/src/tinyxml/tinyxml.cpp"
+		"${CMAKE_SOURCE_DIR}/src/tinyxml/tinyxmlerror.cpp"
+		"${CMAKE_SOURCE_DIR}/src/tinyxml/tinyxmlparser.cpp"
+	)
+	target_compile_definitions(tinyxml PUBLIC TIXML_USE_STL)
+	target_include_directories(tinyxml PUBLIC "${TINYXML_INCLUDE_DIR}")
+	set(TINYXML_LIBRARIES tinyxml)
+	add_definitions(-DTIXML_USE_STL)
+endif()
 include_directories(${TINYXML_INCLUDE_DIR})
 message(STATUS "TINYXML_INCLUDE_DIR:    ${TINYXML_INCLUDE_DIR}")
 message(STATUS "TINYXML_LIBRARIES:      ${TINYXML_LIBRARIES}")
@@ -158,10 +178,16 @@ endif()
 #------------------------------------
 # Por defecto usar data/ del repo (desarrollo). Para instalación: -Ddatadir=/usr/local/share/dangerdeep/
 if(NOT DEFINED datadir)
-  set(datadir "${CMAKE_SOURCE_DIR}/data/")
+  if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+    set(datadir "data/")
+  else()
+    set(datadir "${CMAKE_SOURCE_DIR}/data/")
+  endif()
 endif()
-if(NOT IS_ABSOLUTE "${datadir}")
-  get_filename_component(datadir "${datadir}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+  if(NOT IS_ABSOLUTE "${datadir}")
+    get_filename_component(datadir "${datadir}" ABSOLUTE BASE_DIR "${CMAKE_SOURCE_DIR}")
+  endif()
 endif()
 if(NOT datadir MATCHES "/$")
   set(datadir "${datadir}/")
@@ -181,14 +207,14 @@ set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/dist")
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/dist/bin)
 
-# include_directories(.)
-
-# include_directories(${INC_DIRS})
-# get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-# message("INCLUDE_DIRECTORIES: ${dirs}")
-
 # Salida de configure_file (system_defines.h)
 include_directories("${CMAKE_BINARY_DIR}")
+
+if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+	set(AMIGAOS_LIBS
+		-ltiff -lwebpdemux -lwebpmux -lwebp -lsharpyuv -lmodplug -lvorbisfile -lvorbis -logg -lpng16 -ljpeg -lz -lpthread
+	)
+endif()
 
 set(LIBS
 	${OPENGL_LIBRARY}
@@ -196,7 +222,8 @@ set(LIBS
 	${BZIP2_LIBRARIES}
 	${FFTW_LIBRARIES}
 	${X11_LIBS}
-	${TINYXML_LIBRARIES})
+	${TINYXML_LIBRARIES}
+	${AMIGAOS_LIBS})
 
 # message("LIBS:  ${LIBS}")
 

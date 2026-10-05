@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 Win32 and MacOsX do not suppport backtracking
 */
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined MINGW32
+#if (defined(__APPLE__) && defined(__MACH__)) || defined MINGW32 || defined(__amigaos4__)
 
 #include <stdio.h>
 
@@ -35,11 +35,11 @@ __attribute__((always_inline))
 
 inline void
 print_stack_trace() {
-    printf("Stack backtracing not supported on Win32 and MacOSX systems.\n");
+    printf("Stack backtracing not supported on this system.\n");
 }
 
-void install_segfault_handler() {
-    printf("SIGSEGV catching not supported on Win32 and MacOSX systems.\n");
+inline void install_segfault_handler() {
+    printf("SIGSEGV catching not supported on this system.\n");
 }
 
 #elif defined WIN32
