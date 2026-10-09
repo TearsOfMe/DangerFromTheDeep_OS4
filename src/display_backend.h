@@ -34,6 +34,7 @@ void display_create_window(const char* caption, int w, int h, bool fullscreen,
                           void** out_window, void** out_glcontext);
 
 void display_destroy_window(void* window, void* glcontext);
+bool display_has_gl_context();
 
 void display_set_window_size(void* window, int w, int h);
 void display_get_window_size(void* window, int* w, int* h);

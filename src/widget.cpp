@@ -586,6 +586,11 @@ void widget::draw_frame(int x, int y, int w, int h, bool out) {
 void widget::process_input(const game_event &event) {
     vector2i pos;
     switch (event.type) {
+    case event_type::QUIT:
+        sys().request_quit();
+        closeme = true;
+        retval = 0;
+        break;
     case event_type::KEY_DOWN:
         if (focussed && focussed->is_enabled())
             focussed->on_char(event.keysym);
@@ -742,7 +747,7 @@ int widget::run(unsigned timeout, bool do_stacking, widget *focussed_at_begin) {
     widgets.push_back(this);
     unsigned endtime = sys().millisec() + timeout;
     focussed = focussed_at_begin ? focussed_at_begin : this;
-    while (!closeme) {
+    while (!closeme && !sys().is_quit_requested()) {
         unsigned time = sys().millisec();
         if (timeout != 0 && time > endtime)
             break;
@@ -1340,15 +1345,29 @@ unsigned widget_edit::cursor_right() const {
     return font::character_right(text, cursorpos);
 }
 
+void widget_edit::on_click(int mx, int /*my*/, int /*mb*/) {
+    vector2i p = get_pos();
+    int fw = globaltheme->frame_size();
+    int rel_x = mx - (p.x + fw);
+    if (rel_x <= 0) {
+        cursorpos = 0;
+        return;
+    }
+    cursorpos = text.length();
+    for (unsigned i = 0; i <= text.length(); ++i) {
+        int w = globaltheme->myfont->get_size(text.substr(0, i)).x;
+        if (w >= rel_x) {
+            cursorpos = i;
+            break;
+        }
+    }
+}
+
 void widget_edit::on_char(const key_sym &ks) {
     int c = ks.sym;
     unsigned l = text.length();
     unsigned textw = globaltheme->myfont->get_size(text).x;
-    // 	printf("get char? %i unicode %i\n", c, ks.unicode);
-    // How to detect multibyte characters:
-    // All parts of a multibyte (UTF8 coded) character have their highest bit set (0x80).
-    // The first byte of the multibyte characters has its second highest bit set (0x40).
-    // So multibyte charactes are sequences 0xC0 | x, 0x80 | x, ...
+
     if (c == SDLK_LEFT && cursorpos > 0) {
         cursorpos = cursor_left();
     } else if (c == SDLK_RIGHT && cursorpos < l) {
@@ -1357,20 +1376,8 @@ void widget_edit::on_char(const key_sym &ks) {
         cursorpos = 0;
     } else if (c == SDLK_END) {
         cursorpos = l;
-    } else if (c == SDLK_RETURN) {
+    } else if (c == SDLK_RETURN || c == SDLK_KP_ENTER) {
         on_enter();
-    } else if (c >= 32 && c <= 255 && c != 127) { // !Rake: Pending complete rewrite
-        string stx = font::to_utf8(ks.scancode);  // !Rake: changed from font::to_utf8(ks.unicode);
-        unsigned stxw = globaltheme->myfont->get_size(stx).x;
-        if (int(textw + stxw + 8) < size.x) {
-            if (cursorpos < l) {
-                text.insert(cursorpos, stx);
-            } else {
-                text += stx;
-            }
-            cursorpos += stx.length();
-            on_change();
-        }
     } else if (c == SDLK_DELETE && cursorpos < l) {
         unsigned clen = cursor_right() - cursorpos;
         text.erase(cursorpos, clen);
@@ -1380,6 +1387,92 @@ void widget_edit::on_char(const key_sym &ks) {
         text = text.erase(clpos, cursorpos - clpos);
         cursorpos = clpos;
         on_change();
+    } else {
+        string stx;
+        bool shift = (ks.mod & (DFTD_KMOD_LSHIFT | DFTD_KMOD_RSHIFT)) != 0;
+        bool caps = (ks.mod & 0x2000) != 0; // SDL KMOD_CAPS
+
+        if (c >= 'a' && c <= 'z') {
+            char ch = (shift ^ caps) ? (char)(c - 'a' + 'A') : (char)c;
+            stx = string(1, ch);
+        } else if (c >= 'A' && c <= 'Z') {
+            char ch = (shift ^ caps) ? (char)(c - 'A' + 'a') : (char)c;
+            stx = string(1, ch);
+        } else if (c >= '0' && c <= '9') {
+            if (!shift) {
+                stx = string(1, (char)c);
+            } else {
+                switch (c) {
+                case '1': stx = "!"; break;
+                case '2': stx = "\""; break;
+                case '3': stx = "#"; break;
+                case '4': stx = "$"; break;
+                case '5': stx = "%"; break;
+                case '6': stx = "&"; break;
+                case '7': stx = "/"; break;
+                case '8': stx = "("; break;
+                case '9': stx = ")"; break;
+                case '0': stx = "="; break;
+                }
+            }
+        } else if (c >= SDLK_KP_1 && c <= SDLK_KP_9) {
+            stx = string(1, (char)('1' + (c - SDLK_KP_1)));
+        } else if (c == SDLK_KP_0) {
+            stx = "0";
+        } else if (c == SDLK_KP_PERIOD) {
+            stx = ".";
+        } else if (c == SDLK_KP_DIVIDE) {
+            stx = "/";
+        } else if (c == SDLK_KP_MULTIPLY) {
+            stx = "*";
+        } else if (c == SDLK_KP_MINUS) {
+            stx = "-";
+        } else if (c == SDLK_KP_PLUS) {
+            stx = "+";
+        } else if (c == SDLK_SPACE) {
+            stx = " ";
+        } else if (c == SDLK_MINUS) {
+            stx = shift ? "_" : "-";
+        } else if (c == SDLK_PERIOD) {
+            stx = shift ? ":" : ".";
+        } else if (c == SDLK_COMMA) {
+            stx = shift ? ";" : ",";
+        } else if (c == SDLK_SLASH) {
+            stx = shift ? "?" : "/";
+        } else if (c == SDLK_BACKSLASH) {
+            stx = shift ? "|" : "\\";
+        } else if (c == SDLK_QUOTE) {
+            stx = shift ? "\"" : "'";
+        } else if (c == SDLK_SEMICOLON) {
+            stx = shift ? ":" : ";";
+        } else if (c == SDLK_EQUALS) {
+            stx = shift ? "+" : "=";
+        } else if (c == SDLK_LEFTBRACKET) {
+            stx = shift ? "{" : "[";
+        } else if (c == SDLK_RIGHTBRACKET) {
+            stx = shift ? "}" : "]";
+        } else if (c == SDLK_BACKQUOTE) {
+            stx = shift ? "~" : "`";
+        } else if (c == SDLK_UNDERSCORE) {
+            stx = "_";
+        } else if (c >= 32 && c <= 126) {
+            stx = string(1, (char)c);
+        } else if (c >= 128 && c <= 255) {
+            stx = font::to_utf8((Uint16)c);
+        }
+
+        if (!stx.empty()) {
+            unsigned stxw = globaltheme->myfont->get_size(stx).x;
+            if (int(textw + stxw + 8) < size.x) {
+                if (cursorpos < l) {
+                    text.insert(cursorpos, stx);
+                } else {
+                    text += stx;
+                }
+                cursorpos += stx.length();
+                on_change();
+            }
+        }
     }
     fire_key_event(ks);
 }

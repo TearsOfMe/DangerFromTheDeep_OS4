@@ -139,7 +139,13 @@ void message_queue::process_messages(bool wait) {
     while (!msgs.empty()) {
         auto msg = std::move(msgs.front());
         msgs.pop_front();
-        msg->evaluate();
+        try {
+            msg->evaluate();
+        } catch (const std::exception &e) {
+            dftd_startup_log("message_queue: Exception during message evaluate: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("message_queue: Unknown exception during message evaluate!");
+        }
         acknowledge(std::move(msg));
     }
 }

@@ -1,4 +1,9 @@
-build
+build/
+build_os4/
+dist/
+third_party/
+.continue/
+IMG_*.jpg
 *~
 *.swp
 *.bak

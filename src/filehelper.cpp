@@ -81,9 +81,25 @@ bool is_directory(const string &filename) {
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+static string sanitize_path(const string &p) {
+    if (p.empty())
+        return p;
+    string s = p;
+    while (s.length() > 1 && (s.back() == '/' || s.back() == '\\')) {
+        if (s.length() >= 2 && s[s.length() - 2] == ':')
+            break;
+        s.pop_back();
+    }
+    return s;
+}
+
 directory::directory(const string &filename)
     : dir(0) {
-    dir = opendir(filename.c_str());
+    string sanitized = sanitize_path(filename);
+    dir = opendir(sanitized.c_str());
+    if (!dir)
+        dir = opendir(filename.c_str());
     if (!dir)
         throw error(string("Can't open directory ") + filename);
 }
@@ -101,7 +117,8 @@ directory::~directory() {
 }
 
 bool make_dir(const string &dirname) {
-    int err = mkdir(dirname.c_str(), 0755);
+    string sanitized = sanitize_path(dirname);
+    int err = mkdir(sanitized.c_str(), 0755);
     return (err != -1);
 }
 
@@ -121,7 +138,10 @@ string get_current_directory() {
 
 bool is_directory(const string &filename) {
     struct stat fileinfo;
-    int err = stat(filename.c_str(), &fileinfo);
+    string sanitized = sanitize_path(filename);
+    int err = stat(sanitized.c_str(), &fileinfo);
+    if (err != 0)
+        err = stat(filename.c_str(), &fileinfo);
     if (err != 0)
         return false;
     if (S_ISDIR(fileinfo.st_mode))

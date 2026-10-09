@@ -116,53 +116,59 @@ void music::init() {
     if (!be->reserve_channels(nr_reserved_channels))
         throw error("could not reserve enough channels");
 
-#if 0
-	// load sfx files
-	// fixme: later implement a cache!
-	try {
-		xml_doc spec(get_sound_dir() + SOUND_SPEC_FILENAME);
-		spec.load();
-		xml_elem sf = spec.first_child();
-		xml_elem mc = sf.child("machines");
-		for (xml_elem::iterator it = mc.iterate(); !it.end(); it.next()) {
-			xml_elem m = it.elem();
-			string mn = m.get_name();
-			vector<Mix_Chunk*>& v = sfx_machines[mn];
-			// the levels/level attributes are ignored yet...fixme
-			for (xml_elem::iterator ik = m.iterate(); !ik.end(); ik.next()) {
-				xml_elem e = ik.elem();
-				if (e.get_name() != "throttle")
-					throw xml_error("illegal child of \"machine\"", e.doc_name());
-				string fn = e.attr("file");
-				v.push_back(0);
-				Mix_Chunk* chk = Mix_LoadWAV((get_sound_dir() + fn).c_str());
-				if (!chk) {
-					v.pop_back();
-					throw file_read_error(get_sound_dir() + fn);
-				}
-				v.back() = chk;
-			}
-		}
-		xml_elem ef = sf.child("effects");
-		for (xml_elem::iterator it = ef.iterate(); !it.end(); it.next()) {
-			xml_elem e = it.elem();
-			string en = e.get_name();
-			string fn = e.attr("file");
-			vector<Mix_Chunk*>& v = sfx_events[en];
-			v.push_back(0);
-			Mix_Chunk* chk = Mix_LoadWAV((get_sound_dir() + fn).c_str());
-			if (!chk) {
-				v.pop_back();
-				throw file_read_error(get_sound_dir() + fn);
-			}
-			v.back() = chk;
-		}
-	}
-	catch (...) {
-		destructor();
-		throw;
-	}
-#endif
+    // load sfx files
+    try {
+        std::string spec_file = get_sound_dir() + SOUND_SPEC_FILENAME;
+        dftd_startup_log("music::init: loading sound specs from '%s'...", spec_file.c_str());
+        FILE *fp = fopen(spec_file.c_str(), "rb");
+        if (fp) {
+            fclose(fp);
+            xml_doc spec(spec_file);
+            spec.load();
+            xml_elem sf = spec.first_child();
+            xml_elem mc = sf.child("machines");
+            for (xml_elem::iterator it = mc.iterate(); !it.end(); it.next()) {
+                xml_elem m = it.elem();
+                string mn = m.get_name();
+                vector<audio_chunk_handle*>& v = sfx_machines[mn];
+                for (xml_elem::iterator ik = m.iterate(); !ik.end(); ik.next()) {
+                    xml_elem e = ik.elem();
+                    if (e.get_name() != "throttle")
+                        continue;
+                    string fn = e.attr("file");
+                    string full_path = get_sound_dir() + fn;
+                    audio_chunk_handle* chk = be->load_chunk(full_path);
+                    if (chk) {
+                        v.push_back(chk);
+                    } else {
+                        dftd_startup_log("music::init: Warning: could not load machine sound '%s'", full_path.c_str());
+                    }
+                }
+                dftd_startup_log("music::init: loaded machine '%s' (%u levels)", mn.c_str(), (unsigned)v.size());
+            }
+            xml_elem ef = sf.child("effects");
+            for (xml_elem::iterator it = ef.iterate(); !it.end(); it.next()) {
+                xml_elem e = it.elem();
+                string en = e.get_name();
+                string fn = e.attr("file");
+                vector<audio_chunk_handle*>& v = sfx_events[en];
+                string full_path = get_sound_dir() + fn;
+                audio_chunk_handle* chk = be->load_chunk(full_path);
+                if (chk) {
+                    v.push_back(chk);
+                } else {
+                    dftd_startup_log("music::init: Warning: could not load effect sound '%s'", full_path.c_str());
+                }
+            }
+            dftd_startup_log("music::init: loaded %u sound effect categories.", (unsigned)sfx_events.size());
+        } else {
+            dftd_startup_log("music::init: '%s' not found, skipping sfx loading.", spec_file.c_str());
+        }
+    } catch (const std::exception &e) {
+        dftd_startup_log("music::init: Exception loading sound categories: %s", e.what());
+    } catch (...) {
+        dftd_startup_log("music::init: Unknown exception loading sound categories!");
+    }
 }
 
 void music::loop() {
@@ -265,14 +271,14 @@ bool music::pause_sfx(bool on) {
 
 void music::exec_append_track(const std::string &filename) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
 
     audio_backend* be = get_audio_backend();
     audio_music_handle* tmp = be->load_music(get_sound_dir() + filename);
 
     if (!tmp) {
-        log_warning("Failed to load track: " << filename << ", " << be->get_error());
-        throw file_read_error(filename);
+        dftd_startup_log("music: Failed to load track '%s': %s", filename.c_str(), be->get_error());
+        return;
     }
     playlist.push_back(filename);
     musiclist.push_back(tmp);
@@ -280,23 +286,21 @@ void music::exec_append_track(const std::string &filename) {
 
 void music::exec_set_playback_mode(playback_mode pbm_) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     pbm = pbm_;
 }
 
 void music::exec_play(unsigned fadein) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     if (!get_audio_backend()->is_playing_music()) {
         start_play_track(current_track, fadein);
-    } else {
-        throw std::runtime_error("music still playing, can't execute play()");
     }
 }
 
 void music::exec_stop(unsigned fadeout) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     audio_backend* be = get_audio_backend();
     if (be->is_paused_music())
         be->resume_music();
@@ -306,14 +310,12 @@ void music::exec_stop(unsigned fadeout) {
             be->fade_out_music(static_cast<int>(fadeout));
         else
             be->halt_music();
-    } else {
-        throw std::runtime_error("music not playing, can't execute stop()");
     }
 }
 
 void music::exec_pause() {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     audio_backend* be = get_audio_backend();
     if (be->is_playing_music() && !be->is_paused_music())
         be->pause_music();
@@ -321,29 +323,20 @@ void music::exec_pause() {
 
 void music::exec_resume() {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     get_audio_backend()->resume_music();
 }
 
 void music::exec_set_music_position(float pos) {
     audio_backend* be = get_audio_backend();
     be->rewind_music();
-    if (!be->set_music_position(pos)) {
-        throw std::runtime_error("music set position failed");
-    }
+    be->set_music_position(pos);
 }
 
 void music::exec_play_track(unsigned nr, unsigned fadeouttime, unsigned fadeintime) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
-    try {
-        exec_stop(fadeouttime);
-    } catch (exception &e) {
-        // couldn't stop, so music was already stopped?
-        current_track = nr;
-        exec_play(fadeintime);
         return;
-    }
+    exec_stop(fadeouttime);
     usersel_next_track = int(nr);
     usersel_fadein = fadeintime;
 }
@@ -383,19 +376,21 @@ void music::exec_get_current_track(unsigned &track) {
 
 void music::exec_is_playing(bool &isply) {
     audio_backend* be = get_audio_backend();
-    if (!be->is_playing_music() || be->is_paused_music())
-        throw std::runtime_error("music not playing");
-    isply = true;
+    isply = (be && be->is_playing_music() && !be->is_paused_music());
 }
 
 void music::exec_play_sfx(const std::string &category, const vector3 &listener, angle listener_dir, const vector3 &noise_pos) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     auto it = sfx_events.find(category);
-    if (it == sfx_events.end())
-        throw invalid_argument(string("unknown category for sfx: ") + category);
+    if (it == sfx_events.end() || it->second.empty())
+        return;
     unsigned snr = unsigned(it->second.size() * rnd());
+    if (snr >= it->second.size())
+        snr = 0;
     audio_chunk_handle* chk = it->second[snr];
+    if (!chk)
+        return;
     audio_backend* be = get_audio_backend();
 
     double distanceFromPlayer = listener.distance(noise_pos);
@@ -406,8 +401,6 @@ void music::exec_play_sfx(const std::string &category, const vector3 &listener, 
     // fixme: this depends on wether the noise is inside the sub or not!
 
     // audible range varies depending on whether player/noise source is submerged or not
-    //
-    // 255 == max dist value for Mix_SetPosition()
     if (listener.z < 0) {
         // player submerged
         if (noise_pos.z < 0) {
@@ -435,22 +428,22 @@ void music::exec_play_sfx(const std::string &category, const vector3 &listener, 
 
         // dist for set_channel_position is 0-255, 0 = loudest
         int dist = static_cast<int>(distanceFromPlayer / hearing_increment);
+        if (dist > 255) dist = 255;
         short angle_val = static_cast<short>(bearingFromPlayer.value());
 
         int channel_num = be->play_channel(-1, chk, 0);
-        if (channel_num < 0)
-            throw sdl_error(std::string("unable to play sfx: ") + be->get_error());
-        if (!be->set_channel_position(channel_num, angle_val, static_cast<unsigned char>(dist)))
-            throw sdl_error("set_channel_position() failed");
+        if (channel_num >= 0) {
+            be->set_channel_position(channel_num, angle_val, static_cast<unsigned char>(dist));
+        }
     }
 }
 
 void music::exec_play_sfx_machine(const std::string &name, unsigned throttle) {
     if (!use_music)
-        throw std::invalid_argument("no music support");
+        return;
     auto it = sfx_machines.find(name);
-    if (it == sfx_machines.end())
-        throw invalid_argument(string("unknown machine name: ") + name);
+    if (it == sfx_machines.end() || it->second.empty())
+        return;
     audio_backend* be = get_audio_backend();
     unsigned nrthr = it->second.size();
     unsigned thr = throttle * (nrthr + 1) / 100;
@@ -463,15 +456,15 @@ void music::exec_play_sfx_machine(const std::string &name, unsigned throttle) {
     thr = std::min(thr - 1, nrthr - 1);
 
     audio_chunk_handle* chk = it->second[thr];
-    if (chk == current_machine_sfx)
+    if (!chk || chk == current_machine_sfx)
         return;
 
     if (be->is_channel_playing(SFX_CHANNEL_MACHINE))
         be->halt_channel(SFX_CHANNEL_MACHINE);
     current_machine_sfx = nullptr;
-    if (be->play_channel(SFX_CHANNEL_MACHINE, chk, -1) < 0)
-        throw sdl_error(std::string("can't play channel: ") + be->get_error());
-    current_machine_sfx = chk;
+    if (be->play_channel(SFX_CHANNEL_MACHINE, chk, -1) >= 0) {
+        current_machine_sfx = chk;
+    }
 }
 
 void music::exec_pause_sfx(bool on) {

@@ -1,0 +1,86 @@
+Short:        Open source WW2 German submarine simulation (Mesa 3D port)
+Author:       Thorsten Jordan, Luis Barrancos and others (AmigaOS 4 port by TearsOfMe)
+Uploader:     TearsOfMe
+Type:         game/sim
+Version:      0.3.900-mesa-r3
+Architecture: ppc-amigaos >= 4.1.0
+
+================================================================================
+                    DANGER FROM THE DEEP (AmigaOS 4.1)
+================================================================================
+
+Danger from the Deep (dftd) is an advanced open-source World War II German 
+submarine simulation. The game features realistic submarine simulation physics, 
+celestial mechanics, convoy behavior, acoustic sensors, torpedo ballistics, 
+damage control, and full 3D graphics.
+
+This package provides native, highly optimized AmigaOS 4.1 Mesa 3D builds.
+
+================================================================================
+REQUIREMENTS
+================================================================================
+- AmigaOS 4.1 Final Edition (Update 1 or 2 recommended)
+- PowerPC processor (AmigaOne X1000, X5000, A1222+, Sam460, etc.)
+- 3D graphics hardware with Warp3D Nova and Mesa 3D (RadeonHD or RadeonRX)
+- Minimum 512 MB RAM (1 GB recommended)
+- AHI audio system
+- Embedded stack cookie: 4 MB ($STACK: 4194304)
+
+================================================================================
+INCLUDED EXECUTABLES
+================================================================================
+This release includes two specialized Mesa executables:
+
+1. dangerdeep_mesa_fast  (WITHOUT DEBUG - RECOMMENDED FOR REGULAR GAMING)
+   - Highest performance build with -O3 and AltiVec/VMX optimizations.
+   - Debug logging overhead disabled for maximum frame rate.
+   - Recommended for daily play.
+
+2. dangerdeep_mesa       (WITH DEBUG - FOR LOGGING & TROUBLESHOOTING)
+   - Full diagnostic logging enabled.
+   - Writes detailed startup and game status to "PROGDIR:dftd_startup.log".
+   - Useful for testing graphics drivers or reporting issues.
+
+================================================================================
+INSTALLATION
+================================================================================
+Extract the archive to any location on your hard drive (e.g. Work:Games/) and
+double-click the "dangerdeep_mesa_fast" icon.
+
+A compatible "mesa.library" is provided in the "libs/" subdirectory for systems
+that require it.
+
+================================================================================
+KEYBOARD CONTROLS (QUICK REFERENCE)
+================================================================================
+Stations:
+  [F1] Gauges & Helm          [F6] Torpedo Room
+  [F2] Periscope              [F7] Damage Control
+  [F3] UZO Target Optics      [F8] Logbook / KTB
+  [F4] Bridge View            [F9] Sunk Ships Record
+  [F5] Navigation Map        [F10] Free Camera
+
+Helm & Throttle:
+  [Cursor Left/Right] Rudder Port / Starboard
+  [Cursor Up/Down]    Dive planes
+  [Return]            Rudder Amidships
+  [1]..[4]            Ahead Slow / Half / Flank / Stop
+  [5]..[6]            Astern Slow / Full
+
+Diving & Combat:
+  [s] Surface                 [0] Raise / Lower Scope
+  [p] Periscope Depth         [Space] Lock Target
+  [c] Crash Dive (Alarm)      [t] Fire Torpedo
+  [d] Snorkel Depth           [g] Deck Gun
+  [+] / [-] Map Zoom          [F11] / [F12] Time Compression
+
+For full instructions in German, please read "ANLEITUNG.txt".
+
+================================================================================
+LICENSES & CREDITS
+================================================================================
+- Game code: GNU General Public License v2 (GPLv2).
+- Artwork, models, textures, UI: Creative Commons CC-BY-NC-ND 2.5.
+- Audio soundtracks: Creative Commons CC-BY-NC-ND 2.0 / Public Domain.
+- AmigaOS 4 port: TearsOfMe (2026).
+- See "LIZENZEN.txt", "LEGAL_NOTICES.txt", and "LICENSE.txt" for full details.

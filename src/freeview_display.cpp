@@ -47,6 +47,28 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <fstream>
 using std::vector;
 
+static Uint32 s_timings_refl_ms = 0;
+static Uint32 s_timings_foam_ms = 0;
+static Uint32 s_timings_water_ms = 0;
+static Uint32 s_timings_terr_ms = 0;
+static unsigned s_timings_frames = 0;
+
+void freeview_get_and_reset_timings(float &refl_ms, float &foam_ms, float &water_ms, float &terr_ms) {
+    if (s_timings_frames > 0) {
+        refl_ms = float(s_timings_refl_ms) / float(s_timings_frames);
+        foam_ms = float(s_timings_foam_ms) / float(s_timings_frames);
+        water_ms = float(s_timings_water_ms) / float(s_timings_frames);
+        terr_ms = float(s_timings_terr_ms) / float(s_timings_frames);
+    } else {
+        refl_ms = foam_ms = water_ms = terr_ms = 0.0f;
+    }
+    s_timings_refl_ms = 0;
+    s_timings_foam_ms = 0;
+    s_timings_water_ms = 0;
+    s_timings_terr_ms = 0;
+    s_timings_frames = 0;
+}
+
 /* idea about depth fog:
    every parts below water surface should be rendered with fog, but fog color
    variies with depth (and daytime in general).
@@ -221,7 +243,8 @@ void freeview_display::draw_objects(game &gm, const vector3 &viewpos,
                                     const vector<sea_object *> &objects,
                                     const colorf &light_color,
                                     const bool under_water,
-                                    bool mirrorclip) const {
+                                    bool mirrorclip,
+                                    const frustum *vf) const {
     // simulate horizon: d is distance to object (on perimeter of earth)
     // z is additional height (negative!), r is earth radius
     // z = r*sin(PI/2 - d/r) - r
@@ -236,6 +259,14 @@ void freeview_display::draw_objects(game &gm, const vector3 &viewpos,
 
         if (aboard && *it == player)
             continue;
+
+        if (vf && !mirrorclip) {
+            vector3 objpos = (*it)->get_pos();
+            double radius = (*it)->get_bounding_radius() + 20.0;
+            if (!vf->sphere_in_frustum(objpos, radius))
+                continue;
+        }
+
         glPushMatrix();
 
         if (mirrorclip && !istorp) {
@@ -421,65 +452,76 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
     // sys().gl_perspective_fovx(pd.fov_x * 1.0, 1.0 /*aspect*/, pd.near_z, pd.far_z);
     // -------- old end ------------
 
-    ui.get_water().refltex_render_bind();
+    static unsigned s_freeview_frame = 0;
+    unsigned cur_fv_frame = s_freeview_frame++;
+    s_timings_frames++;
+    bool update_reflection = (cur_fv_frame == 0) || ((cur_fv_frame % 3) == 0);
+    bool update_foam = (cur_fv_frame == 0) || ((cur_fv_frame % 3) == 1);
 
-    // shear one clip plane to match world space z=0 plane
-    // fixme, use shaders for that, Clip planes are often computed in software and are too slow
-    // the question is how they interfere with shaders?
-    // yes they are damn slow.
-    // give height of object (pos.z) to shader, it then clips at -z.
-    // no, instead compute plane to clip to and clip in shader.
-    // either clip to arbitrary plane (z=0 water plane in world space is not z=0 in eye space)
-    // or transform object space to world space, then clip at z=0 and then transform to eye space.
+    if (update_reflection) {
+        Uint32 t_refl_0 = SDL_GetTicks();
+        colorf clear_sky(horizon_color[0], horizon_color[1], horizon_color[2]);
+        ui.get_water().refltex_render_bind(clear_sky);
 
-    {
-        glPushMatrix();
-        // flip geometry at z=0 plane
-        glScalef(1.0f, 1.0f, -1.0f);
-        glCullFace(GL_FRONT);
+        // shear one clip plane to match world space z=0 plane
+        // fixme, use shaders for that, Clip planes are often computed in software and are too slow
+        // the question is how they interfere with shaders?
+        // yes they are damn slow.
+        // give height of object (pos.z) to shader, it then clips at -z.
+        // no, instead compute plane to clip to and clip in shader.
+        // either clip to arbitrary plane (z=0 water plane in world space is not z=0 in eye space)
+        // or transform object space to world space, then clip at z=0 and then transform to eye space.
 
-        // viewpos for drawing mirrored objects should/must be changed
-        // to (vp.x, vp.y, -vp.z) (z coordinate negated).
-        vector3 viewpos_mirror = vector3(viewpos.x, viewpos.y, -viewpos.z);
+        {
+            glPushMatrix();
+            // flip geometry at z=0 plane
+            glScalef(1.0f, 1.0f, -1.0f);
+            glCullFace(GL_FRONT);
 
-        // flip light!
-        glLightfv(GL_LIGHT0, GL_POSITION, lposition);
+            // viewpos for drawing mirrored objects should/must be changed
+            // to (vp.x, vp.y, -vp.z) (z coordinate negated).
+            vector3 viewpos_mirror = vector3(viewpos.x, viewpos.y, -viewpos.z);
 
-        // draw all parts of the scene that are (partly) above the water:
-        //   sky
-        ui.get_sky().display(gm.compute_light_color(viewpos_mirror), viewpos_mirror, max_view_dist, true);
+            // flip light!
+            glLightfv(GL_LIGHT0, GL_POSITION, lposition);
 
-        glPopMatrix();
+            // draw all parts of the scene that are (partly) above the water:
+            //   sky
+            ui.get_sky().display(gm.compute_light_color(viewpos_mirror), viewpos_mirror, max_view_dist, true);
 
-        //   terrain - it handles z-flipping itself
-        ui.draw_terrain(viewpos_mirror, ui.get_absolute_bearing(), max_view_dist, true /*mirrored*/, above_water);
+            glPopMatrix();
 
-        glPushMatrix();
-        // flip geometry at z=0 plane
-        glScalef(1.0f, 1.0f, -1.0f);
+            // terrain in reflection pass skipped for performance (saves 50% geoclipmap CPU/GPU load)
+            // ui.draw_terrain(viewpos_mirror, ui.get_absolute_bearing(), max_view_dist, true /*mirrored*/, above_water);
 
-        // fixme
-        //    models/smoke
-        //  test hack. limit mirror effect only to near objects?
-        //  the drawn water is nearly a flat plane in the distance so mirroring
-        //  would be perfect which is highly unrealistic.
-        //  so remove entries that are too far away. Torpedoes can't be seen
-        //  so they don't need to get rendered.
-        vector<sea_object *> objects_mirror;
-        objects_mirror.reserve(objects.size());
-        const double MIRROR_DIST = 1000.0; // 1km or so...
-        for (vector<sea_object *>::const_iterator it = objects.begin(); it != objects.end(); ++it) {
-            if ((*it)->get_pos().xy().square_distance(viewpos.xy()) < MIRROR_DIST * MIRROR_DIST) {
-                objects_mirror.push_back(*it);
+            glPushMatrix();
+            // flip geometry at z=0 plane
+            glScalef(1.0f, 1.0f, -1.0f);
+
+            // fixme
+            //    models/smoke
+            //  test hack. limit mirror effect only to near objects?
+            //  the drawn water is nearly a flat plane in the distance so mirroring
+            //  would be perfect which is highly unrealistic.
+            //  so remove entries that are too far away. Torpedoes can't be seen
+            //  so they don't need to get rendered.
+            vector<sea_object *> objects_mirror;
+            objects_mirror.reserve(objects.size());
+            const double MIRROR_DIST = 1000.0; // 1km or so...
+            for (vector<sea_object *>::const_iterator it = objects.begin(); it != objects.end(); ++it) {
+                if ((*it)->get_pos().xy().square_distance(viewpos.xy()) < MIRROR_DIST * MIRROR_DIST) {
+                    objects_mirror.push_back(*it);
+                }
             }
+            draw_objects(gm, viewpos_mirror, objects_mirror, lightcol, false /* under_water */, true /* mirror */);
+
+            glCullFace(GL_BACK);
+
+            glPopMatrix();
         }
-        draw_objects(gm, viewpos_mirror, objects_mirror, lightcol, false /* under_water */, true /* mirror */);
-
-        glCullFace(GL_BACK);
-
-        glPopMatrix();
+        ui.get_water().refltex_render_unbind();
+        s_timings_refl_ms += (SDL_GetTicks() - t_refl_0);
     }
-    ui.get_water().refltex_render_unbind();
 
 #if 0
 	unsigned vps=512;
@@ -496,6 +538,8 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
     // ********* set fog for scene ****************************************************
     glFogi(GL_FOG_MODE, GL_EXP);
     glFogfv(GL_FOG_COLOR, horizon_color);
+    ui.get_water().set_fog(colorf(horizon_color[0], horizon_color[1], horizon_color[2]),
+                           above_water == 1 ? 0.0005f : 0.005f);
     // values for fog density:
     // 0.0005 - 0.002 good weather, higher numbers give more haze
     if (1 == above_water) {
@@ -536,7 +580,11 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
             }
         }
     }
-    ui.get_water().compute_amount_of_foam_texture(gm, viewpos, allships);
+    if (update_foam) {
+        Uint32 t_foam_0 = SDL_GetTicks();
+        ui.get_water().compute_amount_of_foam_texture(gm, viewpos, allships);
+        s_timings_foam_ms += (SDL_GetTicks() - t_foam_0);
+    }
 
 #if 0
 	unsigned vps=512;
@@ -582,15 +630,13 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
     // Note! glClear() deletes whole buffer, not only viewport.
     // use glScissor with glClear here or clear with own command.
     if (pd.fullscreen) {
-        //		glClearColor(0.015, 0.01, 0.055, 0);
-        glClearColor(0.0, 0.0, 0.0, 0);
+        glClearColor(horizon_color[0], horizon_color[1], horizon_color[2], 0.0f);
         // this color clear eats ~ 2 frames (52 to 50 on a gf4mx), but is needed for star sky drawing
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     } else {
         glScissor(pd.x, pd.y, pd.w, pd.h);
         glEnable(GL_SCISSOR_TEST);
-        //		glClearColor(0.015, 0.01, 0.055, 0);
-        glClearColor(0.0, 0.0, 0.0, 0);
+        glClearColor(horizon_color[0], horizon_color[1], horizon_color[2], 0.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glDisable(GL_SCISSOR_TEST);
     }
@@ -638,6 +684,7 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
        foam as well then.
      */
     // under water...
+    Uint32 t_wat_0 = SDL_GetTicks();
     if (above_water <= 0) {
         // render water background plane
         // clip far plane frustum polygon with z=0 plane (water surface)
@@ -657,23 +704,33 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
         ui.get_water().display(viewpos, max_view_dist, true /* under water*/);
         glCullFace(GL_BACK);
     } else {
+        dftd_startup_log("freeview_display: rendering water...");
         ui.get_water().display(viewpos, max_view_dist);
+        dftd_startup_log("freeview_display: water rendered.");
     }
+    s_timings_water_ms += (SDL_GetTicks() - t_wat_0);
 
     // ******** terrain/land ********************************************************
     //	glDisable(GL_FOG);	//testing with new 2d bspline terrain.
+    Uint32 t_terr_0 = SDL_GetTicks();
+    dftd_startup_log("freeview_display: rendering terrain...");
     ui.draw_terrain(viewpos, ui.get_absolute_bearing(), max_view_dist, false /*not mirrored*/, above_water);
+    dftd_startup_log("freeview_display: terrain rendered.");
+    s_timings_terr_ms += (SDL_GetTicks() - t_terr_0);
     //	glEnable(GL_FOG);
 
     // ******************** ships & subs *************************************************
     //	cout << "mv trans pos " << matrix4::get_gl(GL_MODELVIEW_MATRIX).column(3) << "\n";
 
     // substract player pos.
-    draw_objects(gm, viewpos, objects, lightcol, (above_water < 0) ? true : false /* under water */, false /* mirrorclip */);
+    dftd_startup_log("freeview_display: rendering objects...");
+    draw_objects(gm, viewpos, objects, lightcol, (above_water < 0) ? true : false /* under water */, false /* mirrorclip */, &viewfrustum);
+    dftd_startup_log("freeview_display: objects rendered.");
 
     // ******************** draw the bridge in higher detail
     if (aboard && drawbridge) {
         // after everything was drawn, draw conning tower
+        dftd_startup_log("freeview_display: rendering bridge conning tower...");
         vector3 conntowerpos = player->get_pos() - viewpos;
         glPushMatrix();
         // we would have to translate the conning tower, but the current model is centered arount the player's view
@@ -685,11 +742,15 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
         glTranslated(conntowerpos.x, conntowerpos.y, conntowerpos.z);
         conning_tower->display();
         glPopMatrix();
+        dftd_startup_log("freeview_display: bridge conning tower rendered.");
     }
 
     glDisable(GL_FOG);
 
+    dftd_startup_log("freeview_display: weather effects...");
     ui.draw_weather_effects();
 
+    dftd_startup_log("freeview_display: postprocessing...");
     postprocessor::instance().process();
+    dftd_startup_log("freeview_display: display complete.");
 }

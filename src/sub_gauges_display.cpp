@@ -51,40 +51,36 @@ sub_gauges_display::sub_gauges_display(user_interface &ui_) : user_display(ui_),
 }
 
 void sub_gauges_display::display(class game &gm) const {
+    dftd_startup_log("sub_gauges_display::display: starting...");
     submarine *player = dynamic_cast<submarine *>(gm.get_player());
     system::sys().prepare_2d_drawing();
 
+    dftd_startup_log("sub_gauges_display::display: controlscreen->draw(0, 0)...");
     controlscreen->draw(0, 0);
 
+    dftd_startup_log("sub_gauges_display::display: indicator_compass->display...");
     // the absolute numbers here depend on the graphics!
     indicator_compass->display(-player->get_heading().value());
-    //	indicator_battery->display(0);
-    //	indicator_compressor->display(0);
-    //	indicator_diesel->display(0);
+    dftd_startup_log("sub_gauges_display::display: indicator_bow_depth_rudder...");
     indicator_bow_depth_rudder->display(player->get_bow_rudder() * -2.0);
+    dftd_startup_log("sub_gauges_display::display: indicator_stern_depth_rudder...");
     indicator_stern_depth_rudder->display(-player->get_stern_rudder() * -2.0);
+    dftd_startup_log("sub_gauges_display::display: indicator_depth...");
     indicator_depth->display(player->get_depth() * 1.36 - 136.0);
+    dftd_startup_log("sub_gauges_display::display: indicator_knots...");
     indicator_knots->display(fabs(player->get_speed()) * 22.33512 - 131);
+    dftd_startup_log("sub_gauges_display::display: indicator_main_rudder...");
     indicator_main_rudder->display(player->get_rudder_pos() * 2.25);
+    dftd_startup_log("sub_gauges_display::display: compute_throttle_angle...");
     compute_throttle_angle(player->get_throttle());
+    dftd_startup_log("sub_gauges_display::display: indicator_mt...");
     indicator_mt->display(throttle_angle);
 
-    /*	// kept as text reference for tooltips/popups.
-            angle player_speed = player->get_speed()*360.0/sea_object::kts2ms(36);
-            angle player_depth = -player->get_pos().z;
-            draw_gauge(gm, 1, 0, 0, 256, player->get_heading(), texts::get(1),
-                    player->get_head_to());
-            draw_gauge(gm, 2, 256, 0, 256, player_speed, texts::get(4));
-            draw_gauge(gm, 4, 2*256, 0, 256, player_depth, texts::get(5));
-            draw_clock(gm, 3*256, 0, 256, gm.get_time(), texts::get(61));
-            draw_manometer_gauge ( gm, 1, 0, 256, 256, player->get_fuel_level (),
-                    texts::get(101));
-            draw_manometer_gauge ( gm, 1, 256, 256, 256, player->get_battery_level (),
-                    texts::get(102));
-    */
+    dftd_startup_log("sub_gauges_display::display: ui.draw_infopanel(true)...");
     ui.draw_infopanel(true);
 
     system::sys().unprepare_2d_drawing();
+    dftd_startup_log("sub_gauges_display::display: complete.");
 }
 
 void sub_gauges_display::process_input(class game &gm, const game_event &event) {
@@ -100,7 +96,7 @@ void sub_gauges_display::process_input(class game &gm, const game_event &event) 
             sub->head_to_course(indicator_compass->get_angle(mx, my));
         } else if (indicator_depth->is_over(mx, my)) {
             angle mang = indicator_depth->get_angle(mx, my) - angle(225);
-            // 135° are 100m
+            // 135Â° are 100m
             if (mang.value() / 1.35 < 270) {
                 sub->dive_to_depth(unsigned(mang.value() / 1.35));
             }
@@ -113,7 +109,7 @@ void sub_gauges_display::process_input(class game &gm, const game_event &event) 
             double pos = myclamp(mang.value_pm180() / 60.0, -1.0, 1.0);
             sub->set_stern_depth_rudder(-pos);
         } else if (indicator_mt->is_over(mx, my)) {
-            // 270° in 15 steps, 45°-315°, so 18° per step.
+            // 270Â° in 15 steps, 45Â°-315Â°, so 18Â° per step.
             unsigned opt = unsigned(((indicator_mt->get_angle(mx, my) - angle(45)).value()) / 18.0);
             if (opt >= 15)
                 opt = 14;

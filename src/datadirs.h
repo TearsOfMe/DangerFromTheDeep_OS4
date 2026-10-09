@@ -42,6 +42,9 @@ inline std::string get_menu_dir() { return get_data_dir() + "menus/"; }
 // Note! call this at most once and very early in main()!
 void set_data_dir(const std::string &datadir);
 
+/// Map legacy / alias object identifiers to real object specs
+std::string resolve_object_alias(const std::string &id);
+
 class data_file_handler : public singleton<class data_file_handler> {
     friend class singleton<data_file_handler>;
 

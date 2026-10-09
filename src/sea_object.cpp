@@ -428,8 +428,10 @@ sea_object::~sea_object() {
 void sea_object::load(const xml_elem &parent) {
     string specfilename2 = parent.attr("type"); // checks
     // this checks if the filename of the specfile matches the internal id string...
-    if (specfilename != specfilename2)
-        throw error(string("stored specfilename does not match, type=") + specfilename2 + string(", but read ") + specfilename + string(" from spec file"));
+    if (specfilename != specfilename2 && resolve_object_alias(specfilename) != resolve_object_alias(specfilename2)) {
+        dftd_startup_log("WARNING: sea_object::load: stored specfilename '%s' != type '%s', continuing...",
+                         specfilename.c_str(), specfilename2.c_str());
+    }
     xml_elem st = parent.child("state");
     position = st.child("position").attrv3();
     orientation = st.child("orientation").attrq();
@@ -503,19 +505,16 @@ string sea_object::get_description(unsigned detail) const {
         return descr_near;
 }
 
-void sea_object::simulate(double delta_time) {
+bool sea_object::simulate(double delta_time) {
     // check and change states
     if (alive_stat == defunct) {
-        // with that trick we do not need to handle this situation in every heir of sea_object.
-        throw is_dead_exception();
+        return false;
     } else if (alive_stat == dead2) {
-        // change state to defunct.
         alive_stat = defunct;
-        throw is_dead_exception();
+        return false;
     } else if (alive_stat == dead) {
-        // change state to dead2.
         alive_stat = dead2;
-        throw is_dead_exception();
+        return false;
     }
 
     // check target. heirs should check for "out of range" condition too
@@ -659,6 +658,7 @@ void sea_object::simulate(double delta_time) {
     // in reality applied force is transformed by inertia tensor, which is rotated according to
     // orientation. we don't use mass here, so apply rotation to stored velocity/acceleration.
     // fixme: use orientation here and compute heading from it, not vice versa!
+    return true;
 }
 
 bool sea_object::damage(const vector3 &fromwhere, unsigned strength) {
@@ -671,10 +671,8 @@ unsigned sea_object::calc_damage() const {
 }
 
 void sea_object::set_inactive() {
-    if (alive_stat == defunct)
-        throw error("illegal alive_stat switch (defunct to inactive)");
-    if (alive_stat == dead)
-        throw error("illegal alive_stat switch (dead to inactive)");
+    if (alive_stat == defunct || alive_stat == dead || alive_stat == dead2)
+        return;
     alive_stat = inactive;
 }
 
@@ -686,8 +684,8 @@ void sea_object::reanimate() {
 #endif // COD_MODE
 
 void sea_object::kill() {
-    if (alive_stat == defunct)
-        throw error("illegal alive_stat switch (defunct to inactive)");
+    if (alive_stat == defunct || alive_stat == dead || alive_stat == dead2)
+        return;
     alive_stat = dead;
 }
 

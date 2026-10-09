@@ -35,6 +35,10 @@ namespace std {
     class thread;
 }
 
+#ifdef __amigaos4__
+struct SDL_Thread;
+#endif
+
 /// base class for threads.
 ///@note Each thread should be an instance of a class that heirs
 ///	from class thread. Overload some member functions to fill in code for the thread,
@@ -52,6 +56,9 @@ class thread {
     };
 
     std::thread* thread_obj_ptr;
+#ifdef __amigaos4__
+    ::SDL_Thread* thread_sdl_ptr = nullptr;
+#endif
     std::atomic<bool> thread_abort_request;
     std::atomic<thread_state_t> thread_state;
     ::mutex thread_state_mutex;
@@ -68,6 +75,9 @@ class thread {
 
   public:
     static void thread_entry(thread *arg);
+#ifdef __amigaos4__
+    static int thread_entry_sdl(void *arg);
+#endif
 
   protected:
     virtual ~thread();

@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "log.h"
 #include "oglext/OglExt.h"
 #include "texture.h"
+#include "display_backend.h"
 #include <fstream>
 #include <stdexcept>
 using namespace std;
@@ -218,11 +219,13 @@ glsl_shader::glsl_shader(const string &filename, type stype, const glsl_shader::
         glGetShaderInfoLog(id, maxlength, &length, &compilelog[0]);
 
         if (!compiled) {
+            dftd_startup_log("ERROR: Shader compiling failed for '%s'! Log:\n%s", filename.c_str(), compilelog.c_str());
             log_warning("compiling failed, log:");
             log_warning(compilelog);
-            throw runtime_error(string("compiling of shader failed : ") + filename);
+            throw runtime_error(string("compiling of shader failed : ") + filename + " log: " + compilelog);
         }
 
+        dftd_startup_log("Shader '%s' compiled successfully.", filename.c_str());
         log_info("shader compiled successfully, log:");
         log_info(compilelog);
     } catch (exception &e) {
@@ -232,7 +235,8 @@ glsl_shader::glsl_shader(const string &filename, type stype, const glsl_shader::
 }
 
 glsl_shader::~glsl_shader() {
-    glDeleteShader(id);
+    if (id && display_has_gl_context())
+        glDeleteShader(id);
 }
 
 glsl_program::glsl_program()
@@ -243,15 +247,18 @@ glsl_program::glsl_program()
 }
 
 glsl_program::~glsl_program() {
-    if (used_program == this) {
-        // can happen now that we use shaders for everything - but it is no problem
-        // log_warning("deleting bound glsl program!");
-        use_fixed();
+    if (display_has_gl_context()) {
+        if (used_program == this) {
+            // can happen now that we use shaders for everything - but it is no problem
+            // log_warning("deleting bound glsl program!");
+            use_fixed();
+        }
+        // if shaders are still attached, it is rather a bug...
+        for (list<glsl_shader *>::iterator it = attached_shaders.begin(); it != attached_shaders.end(); ++it)
+            glDetachShader(id, (*it)->id);
+        if (id)
+            glDeleteProgram(id);
     }
-    // if shaders are still attached, it is rather a bug...
-    for (list<glsl_shader *>::iterator it = attached_shaders.begin(); it != attached_shaders.end(); ++it)
-        glDetachShader(id, (*it)->id);
-    glDeleteProgram(id);
 }
 
 void glsl_program::attach(glsl_shader &s) {
@@ -278,16 +285,18 @@ void glsl_program::link() {
     glGetProgramiv(id, GL_LINK_STATUS, &waslinked);
 
     if (!waslinked) {
-        log_warning("linking failed, log:");
         GLint maxlength = 0;
         glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlength);
         string compilelog(maxlength + 1, ' ');
         GLsizei length = 0;
         glGetProgramInfoLog(id, maxlength, &length, &compilelog[0]);
+        dftd_startup_log("ERROR: Program link failed (id=%u)! Log:\n%s", id, compilelog.c_str());
+        log_warning("linking failed, log:");
         log_warning(compilelog);
-        throw runtime_error("linking of program failed");
+        throw runtime_error(string("linking of program failed: ") + compilelog);
     }
 
+    dftd_startup_log("Program id=%u linked successfully.", id);
     linked = true;
 }
 

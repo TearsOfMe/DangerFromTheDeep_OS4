@@ -42,49 +42,161 @@ using namespace std;
 #include <windows.h>
 #endif
 
+#include <cstdio>
+#include <cstdarg>
+#include <cstring>
+#include <cstdlib>
+
+static bool s_debug_log_enabled = false;
+static bool s_in_game_loop = false;
+
+void dftd_set_debug_log(bool enabled) {
+    s_debug_log_enabled = enabled;
+}
+
+void dftd_set_in_game_loop(bool in_loop) {
+    s_in_game_loop = in_loop;
+}
+
+bool dftd_is_debug_log_enabled() {
+    return s_debug_log_enabled;
+}
+
+void dftd_startup_log(const char *fmt, ...) {
+    if (!fmt) return;
+
+#if defined(DFTD_NO_DEBUG_LOG)
+    bool is_critical = (fmt[0] == 'F' && strncmp(fmt, "FATAL", 5) == 0) ||
+                       (fmt[0] == 'C' && strncmp(fmt, "CRITICAL", 8) == 0) ||
+                       (fmt[0] == 'S' && strncmp(fmt, "Stack trace", 11) == 0) ||
+                       (fmt[0] == ' ' && fmt[1] == ' ' && fmt[2] == '[') ||
+                       (strncmp(fmt, "game__exec: fps", 15) == 0) ||
+                       (strncmp(fmt, "CPU Vector Unit", 15) == 0) ||
+                       (strncmp(fmt, "[CPU", 4) == 0) ||
+                       (strncmp(fmt, "=== Danger from the Deep", 24) == 0);
+    if (!is_critical) {
+        return;
+    }
+#else
+    if (!s_debug_log_enabled) {
+        bool is_critical = (fmt[0] == 'F' && strncmp(fmt, "FATAL", 5) == 0) ||
+                           (fmt[0] == 'C' && strncmp(fmt, "CRITICAL", 8) == 0) ||
+                           (fmt[0] == 'S' && strncmp(fmt, "Stack trace", 11) == 0) ||
+                           (fmt[0] == ' ' && fmt[1] == ' ' && fmt[2] == '[') ||
+                           (strncmp(fmt, "game__exec: fps", 15) == 0) ||
+                           (strncmp(fmt, "CPU Vector Unit", 15) == 0) ||
+                           (strncmp(fmt, "[CPU", 4) == 0);
+        if (!is_critical && s_in_game_loop) {
+            return;
+        }
+    }
+#endif
+
+    static FILE *logfile = nullptr;
+    static bool tried_open = false;
+    if (!tried_open) {
+        tried_open = true;
+#if defined(__amigaos4__)
+        logfile = fopen("PROGDIR:dftd_startup.log", "a");
+        if (!logfile)
+            logfile = fopen("dftd_startup.log", "a");
+#else
+        logfile = fopen("dftd_startup.log", "a");
+#endif
+    }
+    char buf[1024];
+    va_list va;
+    va_start(va, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, va);
+    va_end(va);
+
+    printf("%s\n", buf);
+    fflush(stdout);
+    if (logfile) {
+        fprintf(logfile, "%s\n", buf);
+        fflush(logfile);
+#if defined(__amigaos4__) || defined(__unix__)
+        fsync(fileno(logfile));
+#endif
+    }
+}
+
 int mymain(list<string> &args);
 
 int call_mymain(list<string> &args) {
+    for (const auto &arg : args) {
+        if (arg == "--debug" || arg == "-debug") {
+            s_debug_log_enabled = true;
+        }
+    }
+    const char *env_debug = getenv("DFTD_DEBUG");
+    if (env_debug && (strcmp(env_debug, "1") == 0 || strcmp(env_debug, "true") == 0)) {
+        s_debug_log_enabled = true;
+    }
+
+    install_segfault_handler();
+    dftd_startup_log("=== Danger from the Deep starting ===");
+    for (const auto &arg : args) {
+        dftd_startup_log("Arg: %s", arg.c_str());
+    }
+
+#ifndef __amigaos4__
+    std::set_terminate([]() {
+        dftd_startup_log("FATAL: std::terminate called! Uncaught C++ exception!");
+        std::exception_ptr p = std::current_exception();
+        if (p) {
+            try {
+                std::rethrow_exception(p);
+            } catch (const std::exception &e) {
+                dftd_startup_log("FATAL: Uncaught exception: %s", e.what());
+            } catch (...) {
+                dftd_startup_log("FATAL: Uncaught non-std exception!");
+            }
+        }
+        abort();
+    });
+#endif
 
     log_info("***** Log file started *****");
     int result = 0;
-#ifdef WIN32
-    result = mymain(args);
-#else
-    /*
-            try {
-                    result = mymain(args);
-            }
-            catch (std::exception& e) {
-                    log_warning("Caught exception: " << e.what());
-                    print_stack_trace();
-                    result = -1;
-            }
-            catch (system::quit_exception& e) {
-                    return e.retval;
-            }
-            catch (...) {
-                    log_warning("Caught unknown exception");
-                    print_stack_trace();
-                    result = -2;
-            }
-    */
-    result = mymain(args);
-
-#endif
+    try {
+        result = mymain(args);
+    } catch (const system::quit_exception& qe) {
+        dftd_startup_log("Normal quit exception (code %d)", qe.retval);
+        result = qe.retval;
+    } catch (const std::exception& e) {
+        dftd_startup_log("CRITICAL EXCEPTION: %s", e.what());
+        std::cout << "CRITICAL ERROR: Caught exception: " << e.what() << std::endl;
+        std::cerr << "CRITICAL ERROR: Caught exception: " << e.what() << std::endl;
+        printf("CRITICAL ERROR: Caught exception: %s\n", e.what());
+        log_warning("Caught exception: " << e.what());
+        result = -1;
+    } catch (...) {
+        dftd_startup_log("CRITICAL UNKNOWN EXCEPTION");
+        std::cout << "CRITICAL ERROR: Caught unknown exception" << std::endl;
+        std::cerr << "CRITICAL ERROR: Caught unknown exception" << std::endl;
+        printf("CRITICAL ERROR: Caught unknown exception\n");
+        result = -2;
+    }
 
     string log_file =
-#ifdef WIN32
+#if defined(__amigaos4__)
+        "PROGDIR:debug.log";
+#elif defined(WIN32)
         "./debug.log";
 #else
-        // fixme: use global /var/games instead
-        string(getenv("HOME")) + "/.dangerdeep/debug.log";
+        (getenv("HOME") ? (string(getenv("HOME")) + "/.dangerdeep/debug.log") : "./debug.log");
 #endif
     log::instance().write(std::cerr, log::LOG_SYSINFO);
     unlink(log_file.c_str());
     std::ofstream f(log_file.c_str());
     log::instance().write(f, log::LOG_SYSINFO);
     log::destroy_instance();
+    std::cout.flush();
+    std::cerr.flush();
+    fflush(stdout);
+    fflush(stderr);
+    dftd_startup_log("=== Danger from the Deep exiting (code %d) ===", result);
     return result;
 }
 

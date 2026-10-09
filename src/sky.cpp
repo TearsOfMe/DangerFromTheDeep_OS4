@@ -285,8 +285,8 @@ void sky::display(const colorf &lightcolor, const vector3 &viewpos, double max_v
     // FIXME maybe rotate star positions every day a bit? rotate with earth rotation? that would be
     // more realistic/cooler
     if (isreflection) {
-        // no stars, blend sky into black
-        glBlendFunc(GL_SRC_ALPHA, GL_ZERO);
+        // no stars in reflection pass, blend sky smoothly over clear_sky horizon color
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
         _stars.display(max_view_dist);
     }

@@ -138,6 +138,9 @@ class geoclipmap {
         texture::ptr normals;
         texture::ptr colors;
 
+        float level_max_height;
+        std::vector<float> level_heights;
+
       public:
         level(geoclipmap &gcm_, unsigned idx, bool outmost_level);
         area set_viewerpos(const vector3 &new_viewpos, const geoclipmap::area &inner);

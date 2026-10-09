@@ -590,6 +590,10 @@ void submarine_interface::toggle_popup() {
 
 void submarine_interface::display() const {
     submarine *player = dynamic_cast<submarine *>(mygame->get_player());
+    if (!player) {
+        dftd_startup_log("submarine_interface::display: WARNING: player is null!");
+        return;
+    }
 
     // machine sound
     unsigned thr = 0;
@@ -628,9 +632,12 @@ void submarine_interface::display() const {
         thr = 0;
         break; // throttled speeds not supported here...
     }
+    dftd_startup_log("submarine_interface::display: throttle=%u, playing machine sfx...", thr);
     music::instance().play_sfx_machine(SFX_MACHINE_SUB_DIESEL, thr);
+    dftd_startup_log("submarine_interface::display: machine sfx done, calling user_interface::display()...");
 
     user_interface::display();
+    dftd_startup_log("submarine_interface::display: user_interface::display() done.");
 
     // panel is drawn in each display function, so the above code is all...
 

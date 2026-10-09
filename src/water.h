@@ -96,7 +96,7 @@ class water {
             const vector3f &get_normal(unsigned x, unsigned y) const {
                 return normals[(y << resolution_shift) + x];
             }
-            void compute_normals();
+            void compute_normals(bool generate_tex = false);
             void debug_dump(); // used only for debugging
         };
 
@@ -145,6 +145,12 @@ class water {
     unsigned loc_w_tex_foamamount;
     unsigned loc_w_foam_transform;
     unsigned loc_w_reflection_transform;
+    unsigned loc_w_fog_color;
+    unsigned loc_w_fog_density;
+
+    mutable vector3f current_fog_color;
+    mutable float current_fog_density;
+    mutable std::vector<float> vertex_cache;
 
     // indices for vertex attributes
     unsigned vattr_aof_index;
@@ -232,10 +238,15 @@ class water {
     void set_refraction_color(const colorf &light_color);
 
     /// prepare reflection texture for mirror drawing
-    void refltex_render_bind() const;
+    void refltex_render_bind(const colorf &clearcol = colorf(0.4f, 0.6f, 0.8f)) const;
 
     /// finish mirror drawing
     void refltex_render_unbind() const;
+
+    void set_fog(const colorf &col, float density) const {
+        current_fog_color = vector3f(col.r, col.g, col.b);
+        current_fog_density = density;
+    }
 };
 
 #endif

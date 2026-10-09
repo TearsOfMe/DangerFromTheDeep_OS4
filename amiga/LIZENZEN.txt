@@ -1,0 +1,104 @@
+================================================================================
+           Danger from the Deep (AmigaOS 4.1) - Lizenz-Informationen
+================================================================================
+
+Dieses Softwarepaket enthaelt Open-Source-Software, die unter verschiedenen
+anerkannten freien und quelloffenen Lizenzen steht. Im Folgenden finden Sie
+eine Uebersicht aller Lizenzen der im Spiel und in der Portierung verwendeten
+Komponenten:
+
+1. DANGER FROM THE DEEP - QUELLTEXT (CODE)
+------------------------------------------
+Der Programmcode von "Danger from the Deep" steht unter der:
+GNU General Public License, Version 2 (GPLv2).
+Copyright (C) 2003-2006 Thorsten Jordan, Luis Barrancos und Mitwirkende.
+AmigaOS 4.1 Portierung Copyright (C) 2026 TearsOfMe.
+
+Den vollstaendigen Lizenztext der GPLv2 finden Sie in der Datei:
+- LICENSE.txt (Abschnitt 4)
+- oder online unter: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+
+2. GRAFIKEN, 3D-MODELLE & SOUNDEFFEKTE (ARTWORK)
+------------------------------------------------
+Alle 2D- und 3D-Grafiken, Modelle, Texturen, Benutzeroberflaechen-Elemente
+und Soundeffekte von Luis Barrancos, Thorsten Jordan, Martin Albertstadt
+und Marco Sarolo stehen unter der:
+Creative Commons Attribution-NonCommercial-NoDerivs 2.5 (CC-BY-NC-ND 2.5) Lizenz.
+
+Bedingungen:
+- Namensnennung: Die Urheber muessen wie angegeben genannt werden.
+- Keine kommerzielle Nutzung: Dieses Werk darf nicht fuer kommerzielle Zwecke
+  verwendet werden.
+- Keine Bearbeitung: Das Werk darf nicht veraendert, umgestaltet oder als
+  Grundlage fuer abgeleitete Werke genutzt werden.
+Vollstaendiger Text in LICENSE.txt.
+
+
+3. SOUNDTRACKS (MUSIK)
+----------------------
+- "I'm in the Mood" von Vera Lynn:
+  Lizenziert unter Creative Commons Attribution-NonCommercial-NoDerivs 2.0
+  (CC-BY-NC-ND 2.0).
+- "Trouble Trouble" von Betty Roche:
+  Public Domain (Archiv www.archive.org / Public Domain 4U).
+
+
+4. VERWENDETE DRITTANBIETER-BIBLIOTHEKEN (THIRD-PARTY LIBRARIES)
+----------------------------------------------------------------
+Fuer die Erstellung der nativen AmigaOS 4.1-Version wurden folgende
+Bibliotheken verwendet bzw. statisch eingebunden:
+
+a) SDL 2.0 (Simple DirectMedia Layer), SDL2_image, SDL2_mixer:
+   Lizenz: zlib License
+   Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+   https://www.libsdl.org/
+
+b) Mesa 3D Graphics Library & mesa.library:
+   Lizenz: MIT / X11 License
+   Copyright (C) 1999-2024 Brian Paul, Mesa-Entwickler und AmigaOS 4-Entwickler.
+   https://www.mesa3d.org/
+
+c) GL4ES (OpenGL for Embedded Systems / Desktop GL Wrapper):
+   Lizenz: MIT License
+   Copyright (c) 2014-2024 Sebastien Chevalier (ptitSeb).
+   https://github.com/ptitSeb/gl4es
+
+d) FFTW 3.x (Fastest Fourier Transform in the West):
+   Lizenz: GNU General Public License v2 oder neuer (GPLv2+)
+   Copyright (C) 1997-2024 Matteo Frigo, Steven G. Johnson, MIT.
+   http://www.fftw.org/
+
+e) TinyXML:
+   Lizenz: zlib License
+   Copyright (c) 2000-2006 Lee Thomason.
+   http://www.grinninglizard.com/tinyxml/
+
+f) libbzip2:
+   Lizenz: BSD-style License
+   Copyright (C) 1996-2019 Julian R. Seward.
+   https://sourceware.org/bzip2/
+
+g) libpng:
+   Lizenz: libpng License
+   Copyright (c) 1995-2024 Glenn Randers-Pehrson et al.
+   http://www.libpng.org/
+
+h) libjpeg:
+   Lizenz: Independent JPEG Group (IJG) License
+   Copyright (C) 1991-2020 Thomas G. Lane, Guido Vollbeding.
+   https://ijg.org/
+
+i) libwebp:
+   Lizenz: BSD 3-Clause License
+   Copyright (c) 2010 Google Inc.
+
+j) libvorbis & libogg:
+   Lizenz: BSD 3-Clause License
+   Copyright (c) 1994-2020 Xiph.Org Foundation.
+   https://xiph.org/
+
+================================================================================
+Die vollstaendigen Lizenztexte der GPLv2 und Creative Commons befinden sich in
+der Datei LICENSE.txt im Hauptverzeichnis des Spiels.
+================================================================================

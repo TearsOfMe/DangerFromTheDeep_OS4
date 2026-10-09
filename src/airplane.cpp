@@ -44,7 +44,9 @@ void airplane::save(xml_elem &parent) const {
     ma.set_attr(pitchfac, "pitchfac");
 }
 
-void airplane::simulate(double delta_time) {
+bool airplane::simulate(double delta_time) {
+    if (!sea_object::simulate(delta_time))
+        return false;
     quaternion invrot = orientation.conj();
     vector3 localvelocity = invrot.rotate(velocity);
 
@@ -146,6 +148,7 @@ void airplane::simulate(double delta_time) {
 
     //	// Adjust fuel_level.
     //	calculate_fuel_factor ( delta_time );
+    return true;
 }
 
 // this all should be replaced by rudder states, fixme

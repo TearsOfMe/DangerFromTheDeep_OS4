@@ -193,6 +193,8 @@ class widget {
     virtual void draw() const;
     virtual bool compute_focus(int mx, int my);
     virtual bool compute_focus(const vector2i &m) { return compute_focus(m.x, m.y); }
+    static void set_focussed(widget *w) { focussed = w; }
+    static widget *get_focussed() { return focussed; }
     virtual bool compute_mouseover(int mx, int my);
     virtual bool compute_mouseover(const vector2i &m) { return compute_mouseover(m.x, m.y); }
     virtual vector2i get_pos() const { return pos; }
@@ -515,6 +517,8 @@ class widget_edit : public widget {
     }
     void draw() const;
     void on_char(const key_sym &ks);
+    virtual void on_click(int mx, int my, int mb);
+    virtual void on_click(const vector2i &m, int mb) { on_click(m.x, m.y, mb); }
     virtual void on_enter() {} // run on pressed ENTER-key
     virtual void on_change() {}
 };

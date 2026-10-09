@@ -1,0 +1,232 @@
+================================================================================
+                    DANGER FROM THE DEEP (AmigaOS 4.1)
+                            BENUTZERANLEITUNG
+================================================================================
+
+Willkommen bei der nativen AmigaOS 4.1-Portierung von "Danger from the Deep" (dftd)!
+Diese Simulation versetzt Sie auf die Bruecke eines deutschen U-Boots im Zweiten
+Weltkrieg und bietet eine realistische physikalische Simulation, detailgetreue
+3D-Grafik, Himmelsmechanik, Akustiksensoren und Geleitzugtaktik.
+
+
+INHALTSVERZEICHNIS:
+-------------------
+1. Systemvoraussetzungen
+2. Installation
+3. Enthaltene Programmversionen (Ohne Debug vs. Mit Debug)
+4. Tastatursteuerung & Stationen (F1 - F10)
+5. Spielstart, Missionen & Speichern
+6. Taktische Tipps fuer U-Boot-Kommandanten
+7. Grafikeinstellungen & Performance
+8. Problembehandlung & Fehlerdiagnose (Troubleshooting)
+9. Urheberrecht & Lizenzen
+
+
+================================================================================
+1. SYSTEMVORAUSSETZUNGEN
+================================================================================
+- Betriebssystem: AmigaOS 4.1 Final Edition (Update 1 oder Update 2 empfohlen)
+- Hardware: AmigaOne X1000, X5000, A1222+, Sam460cr/ex oder vergleichbar
+- Grafikkarte: RadeonHD oder RadeonRX mit aktiver Hardware-3D-Beschleunigung
+  (Warp3D Nova und Mesa 3D / OpenGL ES)
+- Arbeitsspeicher: Mindestens 1 GB RAM empfohlen
+- Audio: AHI-kompatibles Soundsystem
+- Stack: Ein Stack von 4 MB ist fest im Programmcode eingebettet ($STACK: 4194304).
+  Ein manuelles Einstellen des Stacks ist in der Regel nicht notwendig.
+
+
+================================================================================
+2. INSTALLATION
+================================================================================
+1. Entpacken Sie das LHA-Archiv an einen beliebigen Ort auf Ihrer Festplatte
+   (z. B. "Work:Games/DangerFromTheDeep" oder "DH1:Spiele/DangerFromTheDeep").
+2. Oeffnen Sie das Verzeichnis auf der Workbench.
+3. Starten Sie das Spiel per Doppelklick auf eines der Programmicons:
+   - "dangerdeep_mesa_fast" (empfohlen fuer normales Spielen)
+   - oder "dangerdeep_mesa" (fuer Fehlersuche mit Log-Datei).
+
+HINWEIS ZUR MESA-BIBLIOTHEK:
+Im Unterordner "libs/" befindet sich die benoetigte "mesa.library". Sollte auf
+Ihrem System noch keine aktuelle Mesa-Bibliothek in "LIBS:" installiert sein,
+kann diese Datei bei Bedarf dorthin kopiert werden.
+
+
+================================================================================
+3. ENTHALTENE PROGRAMMVERSIONEN
+================================================================================
+In diesem Archiv befinden sich zwei spezialisierte Mesa-Kompilate:
+
+A) "dangerdeep_mesa_fast" (OHNE DEBUG - EMPFOHLEN FUER REGULAERES SPIELEN)
+   -----------------------------------------------------------------------
+   - Maximale Ablaufgeschwindigkeit: Alle CPU- und Compiler-Optimierungen
+     (-O3, AltiVec/VMX-Beschleunigung fuer PowerPC) sind aktiv.
+   - Kein Protokollierungs-Overhead: Unnoetige Debug- und Datei-Logging-Aufrufe
+     in "dftd_startup.log" waehrend des Spiels sind deaktiviert.
+   - Bietet die hoechsten Bildraten (FPS) im 3D-Ozean und auf der Navigationskarte.
+
+B) "dangerdeep_mesa" (MIT DEBUG - FUER ANALYSE & PROBLEMLOESUNG)
+   -------------------------------------------------------------
+   - Ausfuehrliche Protokollierung: Schreibt detaillierte Status- und Initiali-
+     sierungsmeldungen in die Datei "PROGDIR:dftd_startup.log".
+   - Erweiterte Diagnose: Bei unerwarteten Zustaenden oder fehlenden Dateien
+     werden genaue Funktionsaufrufe und Stacktraces erfasst.
+   - Ideal, wenn auf einem System Grafik- oder Soundprobleme untersucht werden
+     sollen.
+
+
+================================================================================
+4. TASTATURSTEUERUNG & STATIONEN
+================================================================================
+
+STATIONEN & KAMERAS (F1 bis F10):
+---------------------------------
+[F1]   Zentraler Steuerstand & Instrumente (Ruderkontrolle, Tiefenmesser, Kompass)
+[F2]   Seerohr / Periskop (Angriff und Beobachtung)
+[F3]   UZO (U-Boot-Zieloptik auf der Bruecke fuer Nachtangriffe)
+[F4]   Freie Brueckensicht (Ueberwasser-Beobachtung)
+[F5]   Navigations- & Lagekarte (Weltkarte, Routen, Geleitzuege, Sensorerfassung)
+[F6]   Torpedoraum (Rohrbelegung, Nachladen, Vorwaermung, Pistolen-Einstellung)
+[F7]   Schadenskontrollraum (Schadensstatus der Sektionen, Lenzpumpen)
+[F8]   Kriegstagebuch / Logbuch
+[F9]   Erfolgsliste (Versenkungstabelle und Tonnage)
+[F10]  Freie Aussenkamera
+
+U-BOOT-STEUERUNG (FAHRT & RUDER):
+---------------------------------
+[Pfeil links / rechts]    Seitenruder Backbord / Steuerbord
+[Pfeil hoch / runter]     Tiefenruder (Sinken / Steigen)
+[Shift + Pfeiltasten]     Schnellere Ruderbewegung
+[Enter / Return]          Ruder mittschiffs (neutrale Ruderstellung)
+
+[1]   Kleine Fahrt voraus
+[2]   Halbe Fahrt voraus
+[3]   AK voraus (Aeusserste Kraft / Flanke)
+[4]   Stopp (Maschinen halt)
+[5]   Kleine Fahrt zurueck
+[6]   AK zurueck (Volle Kraft rueckwaerts)
+
+TAUCHBEFEHLE & TIEFENKONTROLLE:
+-------------------------------
+[s]   Auftauchen (Anblasen der Tauchzellen, volle Ueberwasserfahrt)
+[p]   Seerohrtiefe ansteuern (ca. 12-14 Meter je nach Typ)
+[d]   Schnorcheltiefe (falls Schnorchel vorhanden)
+[c]   ALARM! / Alarmtauchen (sofortiges Fluten aller Zellen, steiler Tauchwinkel)
+[0]   Seerohr ein- / ausfahren (0 auf der Haupttastatur)
+[f]   Schnorchel ein- / ausfahren
+
+ZIELERFASSUNG & WAFFENEINSATZ:
+------------------------------
+[Leertaste]          Zielschiff markieren / anvisieren
+[i]                  Ziel identifizieren (Erkennungsbuch aufrufen)
+[h]                  U-Boot-Kurs auf aktuelle Blickrichtung ausrichten
+[v]                  Blickrichtung auf aktuellen Kompasskurs ausrichten
+[t]                  Torpedo abfeuern (automatische Rohrauswahl)
+[Shift + 1..6]       Gezielt Torpedorohr 1 bis 6 abfeuern
+[z]                  Zoomstufe der Optik umschalten (Fernglas / Periskop)
+[g]                  Deckgeschuetz besetzen / abfeuern
+[Shift + g]          Deckgeschuetz verlassen / bemannen
+
+NAVIGATIONSKARTE (F5):
+----------------------
+[+] / [-]            Karte vergroessern / verkleinern (Zoom)
+[Pfeiltasten]        Kartenausschnitt verschieben
+
+ZEITRAFFER & SYSTEM:
+--------------------
+[F11]                Zeitraffer schneller (1x -> 2x -> 4x -> 8x -> 16x -> 32x)
+[F12]                Zeitraffer langsamer
+[Pause]              Spiel pausieren / fortsetzen
+[Esc]                Pause- & Beenden-Menue aufrufen
+[Drucken / Print]    Bildschirmfoto erstellen
+
+
+================================================================================
+5. SPIELSTART, MISSIONEN & SPEICHERN
+================================================================================
+
+HAUPTMENUE:
+- Einzelmission:
+  * "Geleitzugschlacht": Grosser Geleitzug mit Eskorten und Frachtern.
+  * "Historische Missionen": Vordefinierte historische und Uebungsszenarien.
+  * "Gespeichertes Spiel": Vorherige Spielstaende fortsetzen.
+- Missionseditor: Eigene Szenarien entwerfen.
+- Schiffe & Flugzeuge: 3D-Schau aller historischen Einheiten.
+- Optionen: Sprache, Grafikdetails, Soundlaustaerke.
+
+SPEICHERN & LADEN:
+- Waehrend des Spiels koennen Sie ueber das Pausemenue [Esc] den Spielstand speichern.
+- Im Speicherdialog koennen Sie den gewuenschten Namen frei eingeben. Tastatur-
+  eingaben (Buchstaben, Ziffern, Leerzeichen, Ruecktaste, Entfernen und Cursor-
+  steuerung) werden vollstaendig unterstuetzt.
+- Spielstaende werden im Ordner "PROGDIR:save/" abgelegt.
+
+
+================================================================================
+6. TAKTISCHE TIPPS FUER U-BOOT-KOMMANDANTEN
+================================================================================
+- VORSICHT VOR ZERSTOERERN:
+  Eskortschiffe (Tribal-Klasse, Javelin, Flower-Korvetten) verfuegen ueber ASDIC
+  (aktives Sonar) und Wasserbomben. Wenn Sie entdeckt werden, gehen Sie sofort
+  auf Tiefe (> 100 m) und reduzieren Sie die Geschwindigkeit auf Schleichfahrt
+  (1 oder 2), um Eigengeraeusche zu minimieren.
+
+- NACHTANGRIFFE:
+  Nachts ist ein U-Boot an der Oberflaeche schwer auszumachen. Naehern Sie sich
+  einem Geleitzug aufgetaucht bei gedrosselter Fahrt und nutzen Sie die UZO [F3]
+  fuer Praezisionsschuesse aus 1000-1500 Metern Entfernung.
+
+- TORPEDO-MANAGEMENT [F6]:
+  Denken Sie daran, dass das Nachladen von Torpedorohren Zeit erfordert und bei
+  starkem Seegang oder hohen Geschwindigkeiten erschwert ist. Nutzen Sie vor dem
+  Schuss die elektrische Vorwaermung, um die Trefferzuverlaessigkeit zu erhoehen.
+
+- SCHADENSKONTROLLE [F7]:
+  Wassereinbrueche muessen sofort durch Schliessen der Schotten und Aktivieren
+  der Lenzpumpen bekaempft werden, bevor das Zusatzgewicht das Boot unter die
+  Zerstorungstiefe drueckt.
+
+
+================================================================================
+7. GRAFIKEINSTELLUNGEN & PERFORMANCE
+================================================================================
+- Startoptionen ueber das Amiga-Shell:
+  dangerdeep_mesa_fast --res 1024*768       (Standardaufloesung, empfohlen)
+  dangerdeep_mesa_fast --res 1280*720       (Breitbild 720p)
+  dangerdeep_mesa_fast --nofullscreen       (Fenstermodus auf der Workbench)
+  dangerdeep_mesa_fast --nosound            (Ohne Soundausgabe)
+  dangerdeep_mesa_fast --maxfps 60          (FPS auf 60 limitieren)
+
+- In den Spieloptionen koennen Sie Wasserreflexionen, Gischt-Effekte und die
+  Gelaendedetails fuer schwaechere Grafikkarten anpassen.
+
+
+================================================================================
+8. PROBLEMBEHANDLUNG (TROUBLESHOOTING)
+================================================================================
+1. SPIEL STARTET NICHT / 3D-FEHLER:
+   Pruefen Sie, ob der 3D-Treiber fuer Ihre Radeon-Karte korrekt installiert
+   ist ("Warp3D Nova" sowie "mesa.library"). Im Archiv liegt im Ordner "libs/"
+   eine passende "mesa.library" bei.
+
+2. LOGDATEI PRUEFEN:
+   Sollte das Spiel unerwartet abbrechen, starten Sie "dangerdeep_mesa" (die
+   Debug-Version). Oeffnen Sie danach die Textdatei "dftd_startup.log" im
+   Spielverzeichnis, um die genaue Ursache (z. B. Grafikspeicher voll oder
+   fehlende Hardware-Erweiterungen) einzusehen.
+
+3. SOUND-PROBLEME:
+   Stellen Sie sicher, dass in den AmigaOS-Audioeinstellungen (AHI) eine gueltige
+   Soundkarte (z. B. Envy24HT auf dem X1000) konfiguriert ist.
+
+
+================================================================================
+9. URHEBERRECHT & LIZENZEN
+================================================================================
+- Danger from the Deep Code: GNU General Public License v2 (GPLv2).
+- Grafiken, Modelle, Texturen: Creative Commons CC-BY-NC-ND 2.5.
+- Soundtracks: Creative Commons CC-BY-NC-ND 2.0 / Public Domain.
+- AmigaOS 4.1 Portierung: Open Source Port von TearsOfMe (2026).
+- Weitere Lizenzdetails siehe "LIZENZEN.txt", "LEGAL_NOTICES.txt" und "LICENSE.txt".
+
+Gute Jagd und stets eine Handbreit Wasser unter dem Kiel!
+================================================================================

@@ -406,7 +406,10 @@ int submarine::find_stored_torpedo(bool usebow) {
     return tubenr;
 }
 
-void submarine::simulate(double delta_time) {
+bool submarine::simulate(double delta_time) {
+    if (!is_reference_ok())
+        return sea_object::simulate(delta_time);
+
     // diveplane animation
     if (diveplane_1_id >= 0)
         mymodel->set_object_angle(diveplane_1_id, -bow_depth_rudder.angle);
@@ -429,9 +432,11 @@ void submarine::simulate(double delta_time) {
     double mass_orig = mass;
     mass += mass_flooded_tanks;
     mass_inv = 1.0 / mass;
-    ship::simulate(delta_time);
+    bool ok = ship::simulate(delta_time);
     mass = mass_orig;
     mass_inv = 1.0 / mass;
+    if (!ok)
+        return false;
 
     if (!permanent_dive) {
         depth_steering_logic();
@@ -442,8 +447,10 @@ void submarine::simulate(double delta_time) {
     bow_depth_rudder.simulate(delta_time);
     stern_depth_rudder.simulate(delta_time);
 
-    if (-position.z > max_depth)
+    if (-position.z > max_depth) {
         kill();
+        return false;
+    }
 
     // ------------- simulate state changes ----------------------------------
     // log_debug("dive_state="<<unsigned(dive_state));
@@ -549,6 +556,7 @@ void submarine::simulate(double delta_time) {
         hearing_device = hearing_device_GHG;
     else
         hearing_device = hearing_device_BG;
+    return true;
 }
 
 void submarine::set_target(sea_object *s) {

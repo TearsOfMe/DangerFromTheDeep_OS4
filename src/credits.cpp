@@ -779,7 +779,7 @@ void show_credits() {
     while (!quit) {
         list<game_event> events = sys().poll_event_queue();
         for (auto& ev : events) {
-            if (ev.type == event_type::KEY_DOWN || ev.type == event_type::MOUSE_BUTTON_UP)
+            if (ev.type == event_type::KEY_DOWN || ev.type == event_type::MOUSE_BUTTON_UP || ev.type == event_type::QUIT || sys().is_quit_requested())
                 quit = true;
         }
 

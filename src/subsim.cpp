@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "cfg.h"
 #include "credits.h"
+#include "altivec_detect.h"
 #include "game_event.h"
 #include "datadirs.h"
 #include "date.h"
@@ -188,7 +189,11 @@ loadsavequit_dialogue::loadsavequit_dialogue(const game *g) : widget(0, 0, 1024,
     wm->adjust_buttons(944);
     struct lsqlist : public widget_list {
         void on_sel_change() {
-            dynamic_cast<loadsavequit_dialogue *>(parent)->get_gamename()->set_text(get_selected_entry());
+            loadsavequit_dialogue *lsq = dynamic_cast<loadsavequit_dialogue *>(parent);
+            if (lsq && lsq->get_gamename()) {
+                lsq->get_gamename()->set_text(get_selected_entry());
+                widget::set_focussed(lsq->get_gamename());
+            }
         }
         lsqlist(int x, int y, int w, int h) : widget_list(x, y, w, h) {}
         ~lsqlist() {}
@@ -210,19 +215,25 @@ void loadsavequit_dialogue::load() {
 }
 
 void loadsavequit_dialogue::save() {
-    string fn = get_savegame_name_for(gamename->get_text(), savegames);
+    string gname = gamename->get_text();
+    if (gname.empty()) {
+        gname = "savegame";
+        gamename->set_text(gname);
+    }
+    string fn = get_savegame_name_for(gname, savegames);
     FILE *f = fopen(fn.c_str(), "rb");
     if (f) {
         fclose(f);
-        std::unique_ptr<widget> w(create_dialogue_ok_cancel(texts::get(182), texts::get_replace(183, gamename->get_text())));
+        std::unique_ptr<widget> w(create_dialogue_ok_cancel(texts::get(182), texts::get_replace(183, gname)));
         int ok = w->run();
         w.reset();
         if (!ok)
             return;
     }
     gamesaved = true;
-    mygame->save(fn, gamename->get_text());
-    std::unique_ptr<widget> w(create_dialogue_ok(texts::get(186), texts::get(180) + gamename->get_text() + texts::get(187)));
+    make_dir(savegamedirectory);
+    mygame->save(fn, gname);
+    std::unique_ptr<widget> w(create_dialogue_ok(texts::get(186), texts::get(180) + gname + texts::get(187)));
     w->run();
     update_list();
 }
@@ -362,12 +373,7 @@ void show_results_for_game(const game &gm) {
 // main play loop
 // fixme: clean this up!!!
 game::run_state game__exec(game &gm, user_interface &ui) {
-    // fixme: add special ui heir: playback
-    // to record videos.
-    // record ship positions or at least commands!
-    // and camera path (bspline) etc.
-    // used for credits background etc.
-
+    dftd_startup_log("game__exec: starting...");
     unsigned frames = 1;
     unsigned lasttime = sys().millisec();
     unsigned lastframes = 1;
@@ -376,58 +382,85 @@ game::run_state game__exec(game &gm, user_interface &ui) {
     double totaltime = 0;
     double measuretime = 5; // seconds
 
+    dftd_startup_log("game__exec: resuming all sound...");
     ui.resume_all_sound();
 
+    dftd_startup_log("game__exec: drawing initial frame with ui.display()...");
     // draw one initial frame
     ui.display();
+    dftd_startup_log("game__exec: initial frame display finished.");
 
     ui.request_abort(false);
 
-    while (gm.get_run_state() == game::running && !ui.abort_requested()) {
-        list<game_event> events = sys().poll_event_queue();
+    dftd_startup_log("game__exec: entering running loop...");
+    dftd_set_in_game_loop(true);
+    while (gm.get_run_state() == game::running && !ui.abort_requested() && !sys().is_quit_requested()) {
+        try {
+            dftd_startup_log("game__exec: loop frame %u, polling event queue...", frames);
+            list<game_event> events = sys().poll_event_queue();
+            dftd_startup_log("game__exec: loop frame %u, %u events polled, processing input...", frames, (unsigned)events.size());
 
-        // maybe limit input processing to 30 fps
-        ui.process_input(events);
+            // maybe limit input processing to 30 fps
+            ui.process_input(events);
+            dftd_startup_log("game__exec: loop frame %u, input processed.", frames);
 
-        // this time_scaling is bad. hits may get computed wrong when time
-        // scaling is too high. fixme
-        unsigned thistime = sys().millisec();
-        if (gm.get_freezetime_start() > 0)
-            throw error("freeze_time() called without unfreeze_time() call");
-        lasttime += gm.process_freezetime();
-        unsigned time_scale = ui.time_scaling();
-        double delta_time = (thistime - lasttime) / 1000.0; // * time_scale;
-        totaltime += (thistime - lasttime) / 1000.0;
-        lasttime = thistime;
+            // this time_scaling is bad. hits may get computed wrong when time
+            // scaling is too high. fixme
+            unsigned thistime = sys().millisec();
+            if (gm.get_freezetime_start() > 0)
+                throw error("freeze_time() called without unfreeze_time() call");
+            lasttime += gm.process_freezetime();
+            unsigned time_scale = ui.time_scaling();
+            double delta_time = (thistime - lasttime) / 1000.0; // * time_scale;
+            totaltime += (thistime - lasttime) / 1000.0;
+            lasttime = thistime;
 
-        // next simulation step
-        if (!ui.paused()) {
-            for (unsigned j = 0; j < time_scale; ++j) {
-                gm.simulate(time_scale == 1 ? delta_time : (1.0 / 30.0));
-                // evaluate events of game, because they are cleared
-                // by next call of game::simulate and new ones are
-                // generated
-                const std::list<std::unique_ptr<event>> &events = gm.get_events();
-                for (auto it = events.begin(); it != events.end(); ++it) {
-                    (*it)->evaluate(ui);
+            // next simulation step
+            if (!ui.paused()) {
+                dftd_startup_log("game__exec: loop frame %u, simulating (scale=%u, dt=%f)...", frames, time_scale, delta_time);
+                for (unsigned j = 0; j < time_scale; ++j) {
+                    gm.simulate(time_scale == 1 ? delta_time : (1.0 / 30.0));
+                    // evaluate events of game, because they are cleared
+                    // by next call of game::simulate and new ones are
+                    // generated
+                    const std::list<std::unique_ptr<event>> &events = gm.get_events();
+                    for (auto it = events.begin(); it != events.end(); ++it) {
+                        (*it)->evaluate(ui);
+                    }
                 }
+                dftd_startup_log("game__exec: loop frame %u, simulate complete.", frames);
             }
+
+            // fixme: make use of game::job interface, 3600/256 = 14.25 secs job period
+            ui.set_time(gm.get_time());
+            dftd_startup_log("game__exec: loop frame %u, calling ui.display()...", frames);
+            ui.display();
+            dftd_startup_log("game__exec: loop frame %u, ui.display() complete.", frames);
+            ++frames;
+
+            // record fps
+            if (totaltime - fpstime >= measuretime) {
+                fpstime = totaltime;
+                float refl_ms = 0.0f, foam_ms = 0.0f, wat_ms = 0.0f, terr_ms = 0.0f;
+                extern void freeview_get_and_reset_timings(float &refl_ms, float &foam_ms, float &water_ms, float &terr_ms);
+                freeview_get_and_reset_timings(refl_ms, foam_ms, wat_ms, terr_ms);
+                dftd_startup_log("game__exec: fps %.1f (refl=%.1fms foam=%.1fms water=%.1fms terr=%.1fms)",
+                                 (frames - lastframes) / measuretime, refl_ms, foam_ms, wat_ms, terr_ms);
+                lastframes = frames;
+            }
+
+            dftd_startup_log("game__exec: loop frame %u, swapping buffers...", frames - 1);
+            sys().swap_buffers();
+            dftd_startup_log("game__exec: loop frame %u, buffer swap complete.", frames - 1);
+        } catch (const std::exception &e) {
+            dftd_startup_log("game__exec: FATAL EXCEPTION in frame %u: %s", frames, e.what());
+            break;
+        } catch (...) {
+            dftd_startup_log("game__exec: FATAL UNKNOWN EXCEPTION in frame %u!", frames);
+            break;
         }
-
-        // fixme: make use of game::job interface, 3600/256 = 14.25 secs job period
-        ui.set_time(gm.get_time());
-        ui.display();
-        ++frames;
-
-        // record fps
-        if (totaltime - fpstime >= measuretime) {
-            fpstime = totaltime;
-            log_info("fps " << (frames - lastframes) / measuretime);
-            lastframes = frames;
-        }
-
-        sys().swap_buffers();
     }
+    dftd_set_in_game_loop(false);
 
     ui.pause_all_sound();
 
@@ -443,15 +476,37 @@ void run_game(std::unique_ptr<game> gm) {
 
     auto gametheme = std::make_unique<widget::theme>("widgetelements_game.png", "widgeticons_game.png",
                                                      font_vtremington12, color(182, 146, 137), color(240, 217, 127), color(64, 64, 64));
+    dftd_startup_log("run_game: Starting game...");
     reset_loading_screen();
     // embrace user interface generation with right theme set!
     std::unique_ptr<widget::theme> tmp = widget::replace_theme(std::move(gametheme));
-    std::unique_ptr<user_interface> ui(user_interface::create(*gm));
+    dftd_startup_log("run_game: Creating user interface...");
+    std::unique_ptr<user_interface> ui;
+    try {
+        ui.reset(user_interface::create(*gm));
+    } catch (const std::exception &e) {
+        dftd_startup_log("run_game: FATAL: user_interface::create threw exception: %s", e.what());
+        throw;
+    } catch (...) {
+        dftd_startup_log("run_game: FATAL: user_interface::create threw unknown exception!");
+        throw;
+    }
+    dftd_startup_log("run_game: User interface created successfully.");
+    ui->add_message(cpu_has_altivec() ? "SYSTEM: CPU AltiVec/VMX acceleration ACTIVE" : "SYSTEM: CPU scalar mode (no AltiVec)");
     gametheme = widget::replace_theme(std::move(tmp));
+    dftd_startup_log("run_game: Entering game loop...");
     while (true) {
+        if (sys().is_quit_requested())
+            break;
+        dftd_startup_log("run_game: Replacing theme for game loop...");
         tmp = widget::replace_theme(std::move(gametheme));
+        dftd_startup_log("run_game: Calling game__exec(*gm, *ui)...");
         game::run_state state = game__exec(*gm, *ui);
+        dftd_startup_log("run_game: game__exec returned %d.", (int)state);
         gametheme = widget::replace_theme(std::move(tmp));
+
+        if (sys().is_quit_requested())
+            break;
 
         // if (state == 2) break;
         // SDL_ShowCursor(SDL_ENABLE);
@@ -478,7 +533,7 @@ void run_game(std::unique_ptr<game> gm) {
         } else {
             music::instance().play_track(1, 500);
             loadsavequit_dialogue dlg(gm.get());
-            int q = dlg.run(0, false);
+            int q = dlg.run(0, false, dlg.get_gamename());
             // replace game and ui if new game was loaded
             if (q == 2) {
                 // fixme: ui doesn't need to get replaced, just give pointer to new
@@ -505,8 +560,10 @@ void run_game(std::unique_ptr<game> gm) {
         }
         // SDL_ShowCursor(SDL_DISABLE);
     }
-    show_results_for_game(*gm);
-    check_for_highscore(*gm);
+    if (!sys().is_quit_requested()) {
+        show_results_for_game(*gm);
+        check_for_highscore(*gm);
+    }
 
     // restore menu widgets
     widget::ref_all_backgrounds();
@@ -529,14 +586,19 @@ void run_game_editor(std::unique_ptr<game> gm) {
     // game is initially running, so pause it.
     ui->toggle_pause();
     while (true) {
+        if (sys().is_quit_requested())
+            break;
         tmp = widget::replace_theme(std::move(gametheme));
         // 2006-12-01 doc1972 we should do some checks of the state if game exits
         /*game::run_state state =*/game__exec(*gm, *ui);
         gametheme = widget::replace_theme(std::move(tmp));
 
+        if (sys().is_quit_requested())
+            break;
+
         music::instance().play_track(1, 500);
         loadsavequit_dialogue dlg(gm.get());
-        int q = dlg.run(0, false);
+        int q = dlg.run(0, false, dlg.get_gamename());
         // replace game and ui if new game was loaded
         if (q == 2) {
             // fixme: ui doesn't need to get replaced, just give pointer to new
@@ -1093,9 +1155,13 @@ void choose_historical_mission() {
         std::unique_ptr<game> gm;
         try {
             gm = std::make_unique<game>(cfg::instance(), log::instance(), get_mission_dir() + missions[wmission->get_selected()]);
-        } catch (error &e) {
+        } catch (const std::exception &e) {
+            dftd_startup_log("ERROR loading game: %s", e.what());
             log_warning("error loading game: " << e.what());
             // fixme: show dialogue!
+            return;
+        } catch (...) {
+            dftd_startup_log("ERROR loading game: unknown exception!");
             return;
         }
         // reset loading screen here to show user we are doing something
@@ -1109,13 +1175,24 @@ void choose_historical_mission() {
 //
 void choose_saved_game() {
     loadsavequit_dialogue dlg(0);
-    int q = dlg.run(0, false);
+    int q = dlg.run(0, false, dlg.get_gamename());
     if (q == 0)
         return;
     if (q == 2) {
         // reset loading screen here to show user we are doing something
         reset_loading_screen();
-        run_game(std::make_unique<game>(cfg::instance(), log::instance(), dlg.get_gamefilename_to_load()));
+        std::unique_ptr<game> gm;
+        try {
+            gm = std::make_unique<game>(cfg::instance(), log::instance(), dlg.get_gamefilename_to_load());
+        } catch (const std::exception &e) {
+            dftd_startup_log("ERROR loading saved game: %s", e.what());
+            log_warning("error loading saved game: " << e.what());
+            return;
+        } catch (...) {
+            dftd_startup_log("ERROR loading saved game: unknown exception!");
+            return;
+        }
+        run_game(std::move(gm));
     }
 }
 
@@ -1605,11 +1682,18 @@ bool set_dir(const string &dir, string &setdir) {
 int mymain(list<string> &args) {
     // report critical errors (on Unix/Posix systems)
     install_segfault_handler();
+    log_cpu_features();
 
 #ifdef __amigaos4__
-    if (!is_directory(get_data_dir()) && is_directory("PROGDIR:data/")) {
+    // GL4ES configuration for AmigaOS 4
+    setenv("LIBGL_ES", "2", 1);
+    setenv("LIBGL_GL", "21", 1);
+    setenv("LIBGL_NORMALIZE", "1", 1);
+
+    if (get_data_dir() == "data/" || !is_directory(get_data_dir())) {
         set_data_dir("PROGDIR:data/");
     }
+    dftd_startup_log("Data directory set to: %s", get_data_dir().c_str());
 #endif
 
     string highscoredirectory =
@@ -1632,7 +1716,11 @@ int mymain(list<string> &args) {
 #endif
     // command line argument parsing
     unsigned res_x = 0, res_y = 0;
+#ifdef __amigaos4__
+    bool fullscreen = false;
+#else
     bool fullscreen = true;
+#endif
     string cmdmissionfilename;
     bool runeditor = false;
     unsigned maxfps = 60;
@@ -1805,7 +1893,11 @@ int mymain(list<string> &args) {
     cfg &mycfg = cfg::instance();
     mycfg.register_option("screen_res_x", 1024);
     mycfg.register_option("screen_res_y", 768);
+#ifdef __amigaos4__
+    mycfg.register_option("fullscreen", false);
+#else
     mycfg.register_option("fullscreen", true);
+#endif
     mycfg.register_option("debug", false);
     mycfg.register_option("sound", true);
 
@@ -1908,10 +2000,13 @@ int mymain(list<string> &args) {
     seed_global_rnd(static_cast<unsigned>(time(nullptr)));
 
     // read data files
+    dftd_startup_log("Scanning and reading data files from %s...", get_data_dir().c_str());
     data_file();
+    dftd_startup_log("Data files scanned successfully.");
 
     // make sure the default values are stored if there is no config file,
     // and make sure all registered values are stored in it
+    dftd_startup_log("Loading configuration from %s...", configdirectory.c_str());
     if (is_file(configdirectory + "config")) {
         mycfg.load(configdirectory + "config");
     } else {
@@ -1956,7 +2051,9 @@ int mymain(list<string> &args) {
     texture::use_compressed_textures = mycfg.getb("use_compressed_textures");
     texture::use_anisotropic_filtering = mycfg.getb("use_ani_filtering");
     texture::anisotropic_level = mycfg.getf("anisotropic_level");
+    dftd_startup_log("Initializing display system (%ux%u, fullscreen=%d)...", res_x, res_y, fullscreen ? 1 : 0);
     system::create_instance(new class system(params));
+    dftd_startup_log("Display system initialized successfully.");
     sys().set_screenshot_directory(savegamedirectory);
     sys().set_res_2d(1024, 768);
     sys().set_max_fps(maxfps);
@@ -1971,7 +2068,7 @@ int mymain(list<string> &args) {
     // --------------------------------------------------------------------------------
     // check for shader/glsl support
 
-#ifndef WIN32
+#if !defined(WIN32)
 
     tests gltest = tests();
     int problems = gltest.do_gl_tests();
@@ -2003,6 +2100,11 @@ int mymain(list<string> &args) {
             str_problems << "\n\n"
                          << warnings;
 
+#ifdef __amigaos4__
+            dftd_startup_log("GL tests warnings/errors:\n%s", str_problems.str().c_str());
+            std::cout << str_problems.str() << std::endl;
+            log_warning("GL tests reported errors on AmigaOS 4, attempting to continue anyway...");
+#else
             glClearColor(0, 0, 1, 0);
             glClear(GL_COLOR_BUFFER_BIT);
             sys().prepare_2d_drawing();
@@ -2020,7 +2122,12 @@ int mymain(list<string> &args) {
                     }
                 }
             }
+#ifdef __amigaos4__
+            exit(-1);
+#else
             throw system::quit_exception(-1);
+#endif
+#endif
         }
     }
 
@@ -2116,9 +2223,13 @@ int mymain(list<string> &args) {
         bool ok = true;
         try {
             gm = std::make_unique<game>(cfg::instance(), log::instance(), get_mission_dir() + cmdmissionfilename);
-        } catch (error &e) {
+        } catch (const std::exception &e) {
+            dftd_startup_log("ERROR loading mission: %s", e.what());
             log_warning("error loading mission: " << e.what());
             // fixme: show dialogue!
+            ok = false;
+        } catch (...) {
+            dftd_startup_log("ERROR loading mission: unknown exception!");
             ok = false;
         }
         if (ok) {
@@ -2130,10 +2241,12 @@ int mymain(list<string> &args) {
         int retval = 1;
         widget w(0, 0, 1024, 768, "", 0, "titlebackgr.jpg");
         do { // loop until menu is closed.
+            if (sys().is_quit_requested())
+                break;
             // main menu
             w.remove_children();
 
-#ifndef WIN32
+#if !defined(WIN32) && !defined(__amigaos4__)
             // opengl warnings
             if (0 != warnings.length()) {
                 w.add_child(new widget_text(20, 20, 0, 0, warnings));
@@ -2158,6 +2271,8 @@ int mymain(list<string> &args) {
             wm->add_entry(texts::get(30), new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 0, 0, 0, 0, 0));
             wm->align(0, 0);
             retval = w.run(0, false);
+            if (sys().is_quit_requested())
+                break;
             if (retval == 1)
                 menu_select_language();
         } while (retval != 0);
@@ -2168,6 +2283,10 @@ int mymain(list<string> &args) {
     hsl_mission.save(highscoredirectory + HSL_MISSION_NAME);
     hsl_career.save(highscoredirectory + HSL_CAREER_NAME);
     mycfg.save(configdirectory + "config");
+
+    sys().draw_console_with(font_arial, nullptr);
+    metalbackground.reset();
+    widget::unref_all_backgrounds();
 
     data_file_handler::destroy_instance();
     cfg::destroy_instance();

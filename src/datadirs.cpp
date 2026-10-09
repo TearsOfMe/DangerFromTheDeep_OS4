@@ -30,7 +30,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 // any data depening on that variable, like objcache, textures etc. etc.
 // MUST be inited after main starts, NOT as global static variables themselves,
 // or the static initiliazation order fiasco will result.
+#if defined(__amigaos4__)
+std::string global_datadir = "PROGDIR:data/";
+#else
 std::string global_datadir = DATADIR;
+#endif
 
 const std::string &get_data_dir() {
     return global_datadir;
@@ -39,6 +43,20 @@ const std::string &get_data_dir() {
 // Note! call this only once, and very early in main()!
 void set_data_dir(const std::string &datadir) {
     global_datadir = datadir;
+}
+
+std::string resolve_object_alias(const std::string &id) {
+    if (id == "merchant_small") return "fortshipciv";
+    if (id == "merchant_medium") return "fortship1941";
+    if (id == "merchant_large") return "libertyship1941";
+    if (id == "freighter_large") return "empireprotector";
+    if (id == "freighter_medium") return "empiredabchick";
+    if (id == "troopship_medium") return "fortship1943";
+    if (id == "tanker_small" || id == "tanker_medium") return "tanker_kennebak";
+    if (id == "corvette") return "FlowerCorvette_RN";
+    if (id == "destroyer") return "destroyer_tribal";
+    if (id == "submarine") return "submarine_VIIc";
+    return id;
 }
 
 data_file_handler::data_file_handler() {
@@ -70,12 +88,33 @@ void data_file_handler::parse_for_data_files(std::string dir, std::list<std::str
 }
 
 const std::string &data_file_handler::get_rel_path(const std::string &objectid) const {
-    static std::string emptystr;
-    std::map<std::string, std::string>::const_iterator it = data_files.find(objectid);
-    if (it == data_files.end()) {
-        throw error(std::string("can't find path for object '") + objectid + std::string("'"));
+    std::string id = resolve_object_alias(objectid);
+    std::map<std::string, std::string>::const_iterator it = data_files.find(id);
+    if (it != data_files.end()) {
+        return it->second;
     }
-    return it->second;
+
+    // Try case-insensitive match
+    for (std::map<std::string, std::string>::const_iterator cit = data_files.begin(); cit != data_files.end(); ++cit) {
+        if (cit->first.size() == id.size() && strcasecmp(cit->first.c_str(), id.c_str()) == 0) {
+            return cit->second;
+        }
+    }
+
+    dftd_startup_log("WARNING: data_file_handler::get_rel_path: missing object '%s' (alias '%s'), using fallback!",
+                     objectid.c_str(), id.c_str());
+
+    // Never crash or throw! Fall back to a valid ship or first entry in data_files
+    if (!data_files.empty()) {
+        std::map<std::string, std::string>::const_iterator fit = data_files.find("fortshipciv");
+        if (fit != data_files.end()) {
+            return fit->second;
+        }
+        return data_files.begin()->second;
+    }
+
+    static const std::string empty;
+    return empty;
 }
 
 std::string data_file_handler::get_path(const std::string &objectid) const {
@@ -83,6 +122,24 @@ std::string data_file_handler::get_path(const std::string &objectid) const {
 }
 
 std::string data_file_handler::get_rel_filename(const std::string &objectid) const {
+    std::string id = resolve_object_alias(objectid);
+    std::map<std::string, std::string>::const_iterator it = data_files.find(id);
+    if (it != data_files.end()) {
+        return it->second + it->first + data_file_ext;
+    }
+    for (std::map<std::string, std::string>::const_iterator cit = data_files.begin(); cit != data_files.end(); ++cit) {
+        if (cit->first.size() == id.size() && strcasecmp(cit->first.c_str(), id.c_str()) == 0) {
+            return cit->second + cit->first + data_file_ext;
+        }
+    }
+    // Fallback if not found
+    if (!data_files.empty()) {
+        std::map<std::string, std::string>::const_iterator fit = data_files.find("fortshipciv");
+        if (fit != data_files.end()) {
+            return fit->second + fit->first + data_file_ext;
+        }
+        return data_files.begin()->second + data_files.begin()->first + data_file_ext;
+    }
     return get_rel_path(objectid) + objectid + data_file_ext;
 }
 

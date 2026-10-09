@@ -51,9 +51,13 @@ void game_loader::load(game &g, const std::string &filename) {
     g.equipment_date.load(gst.child("equipment_date"));
     g.myvisibility->set_max_distance(gst.attrf("max_view_dist"));
 
+    dftd_startup_log("game_loader: Initializing water simulation...");
     g.mywater = std::make_unique<water>(g.time, g.config);
+    dftd_startup_log("game_loader: Water simulation initialized.");
+    dftd_startup_log("game_loader: Initializing terrain...");
     g.myheightgen = std::make_unique<terrain<Sint16>>(get_map_dir() + "terrain/terrain.xml",
                                                       get_map_dir() + "terrain/", TERRAIN_NR_LEVELS + 1);
+    dftd_startup_log("game_loader: Terrain initialized.");
 
     // Create entities from XML
     xml_elem sh = sg.child("ships");

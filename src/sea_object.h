@@ -315,7 +315,7 @@ class sea_object {
     const std::string &get_modelname() const { return modelname; }
     const std::string &get_skin_layout() const { return skin_name; }
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
     //	virtual bool is_collision(const sea_object* other);
     //	virtual bool is_collision(const vector2& pos);
 

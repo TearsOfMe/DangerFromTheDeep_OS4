@@ -156,7 +156,11 @@ class system : public singleton<class system> {
     /// Handle nativo de ventana (SDL_Window* en SDL2)
     void* get_window_handle() const;
 
+    void request_quit() { quit_requested = true; }
+    bool is_quit_requested() const { return quit_requested; }
+
   private:
+    bool quit_requested = false;
     system();
     system(const system &);
     system &operator=(const system &);

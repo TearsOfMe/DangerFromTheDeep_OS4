@@ -236,7 +236,7 @@ class submarine : public ship {
     virtual void load(const xml_elem &parent);
     virtual void save(xml_elem &parent) const;
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
 
     void set_target(sea_object *s);
 

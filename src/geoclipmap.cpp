@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "geoclipmap.h"
 #include "global_data.h"
+#include "log.h"
 #include <fstream>
 /*
 Note: the geoclipmap renderer code can't handle levels < 0 yet, so no
@@ -64,17 +65,23 @@ geoclipmap::geoclipmap(unsigned nr_levels, unsigned resolution_exp, height_gener
       levels(nr_levels),
       height_gen(hg),
       wireframe(false) {
+    dftd_startup_log("geoclipmap: Creating %u levels (res_vbo=%u)...", (unsigned)levels.size(), resolution_vbo);
     // initialize vertex VBO and all level VBOs
     for (unsigned lvl = 0; lvl < levels.size(); ++lvl) {
+        dftd_startup_log("geoclipmap: Initializing level %u...", lvl);
         levels.reset(lvl, new level(*this, lvl, lvl + 1 == levels.size()));
     }
+    dftd_startup_log("geoclipmap: All levels initialized.");
 
+    dftd_startup_log("geoclipmap: Compiling shader 0 (geoclipmap.vshader / geoclipmap.fshader)...");
     myshader[0] = std::make_unique<glsl_shader_setup>(get_shader_dir() + "geoclipmap.vshader",
                                                       get_shader_dir() + "geoclipmap.fshader");
     glsl_shader::defines_list defines;
     defines.push_back("MIRROR");
+    dftd_startup_log("geoclipmap: Compiling shader 1 (geoclipmap.vshader / geoclipmap.fshader MIRROR)...");
     myshader[1] = std::make_unique<glsl_shader_setup>(get_shader_dir() + "geoclipmap.vshader",
                                                       get_shader_dir() + "geoclipmap.fshader", defines);
+    dftd_startup_log("geoclipmap: Shaders compiled. Querying uniform locations...");
 
     // do not use too high w_fac with too small resolutions.
     // Otherwise the decaying transition factor (going from 1.0 at outer border
@@ -114,17 +121,22 @@ geoclipmap::geoclipmap(unsigned nr_levels, unsigned resolution_exp, height_gener
         loc_rock_brdf_texture[i] = myshader[i]->get_uniform_location("rock_brdf_texture");
     }
     // set a texture for normals outside coarsest level, just 0,0,1
+    dftd_startup_log("geoclipmap: Creating horizon normal texture...");
     std::vector<Uint8> pxl(3, 128);
     pxl[2] = 255;
     horizon_normal = std::make_unique<texture>(pxl, 1, 1, GL_RGB, texture::LINEAR, texture::REPEAT);
+    dftd_startup_log("geoclipmap: Construction complete.");
 }
 
 geoclipmap::~geoclipmap() {
 }
 
 void geoclipmap::set_viewerpos(const vector3 &new_viewpos) {
+    dftd_startup_log("geoclipmap::set_viewerpos: viewerpos=(%.1f, %.1f, %.1f)...",
+                     new_viewpos.x, new_viewpos.y, new_viewpos.z);
     // check for a total reset of base_viewpos
     if (new_viewpos.xy().distance(base_viewpos) > 10000.0) {
+        dftd_startup_log("geoclipmap::set_viewerpos: distance > 10000, resetting base_viewpos...");
         for (unsigned i = 0; i < levels.size(); ++i) {
             levels[i]->clear_area();
         }
@@ -151,7 +163,9 @@ void geoclipmap::set_viewerpos(const vector3 &new_viewpos) {
     // log_debug("min_level=" << min_level);
 
     for (unsigned lvl = min_level; lvl < levels.size(); ++lvl) {
+        dftd_startup_log("geoclipmap::set_viewerpos: level %u update start...", lvl);
         levelborder = levels[lvl]->set_viewerpos(new_viewpos, levelborder);
+        dftd_startup_log("geoclipmap::set_viewerpos: level %u update done.", lvl);
         // next level has coordinates with half resolution
         // let outer area of current level be inner area of next level
         levelborder.bl.x /= 2;
@@ -159,6 +173,7 @@ void geoclipmap::set_viewerpos(const vector3 &new_viewpos) {
         levelborder.tr.x /= 2;
         levelborder.tr.y /= 2;
     }
+    dftd_startup_log("geoclipmap::set_viewerpos: all levels updated. Setting shader uniforms...");
 
     myshader[0]->use();
     myshader[0]->set_uniform(loc_viewpos[0], new_viewpos - base_viewpos.xy0());
@@ -166,6 +181,7 @@ void geoclipmap::set_viewerpos(const vector3 &new_viewpos) {
     myshader[1]->use();
     myshader[1]->set_uniform(loc_viewpos[1], new_viewpos - base_viewpos.xy0());
     myshader[1]->set_uniform(loc_viewpos_offset[1], new_viewpos);
+    dftd_startup_log("geoclipmap::set_viewerpos: complete.");
 }
 
 void geoclipmap::display(const frustum &f, const vector3 &view_delta, bool is_mirror, int above_water) const {
@@ -274,35 +290,46 @@ geoclipmap::area geoclipmap::level::set_viewerpos(const vector3 &new_viewpos, co
     //  compute part of "outer" that is NOT covered by old outer area,
     //  this gives a rectangular or L-shaped form, but this can not be expressed
     //  as area, only with at least 2 areas...
-    if (vboarea.empty() || vboarea.intersection(outer).empty()) {
-        vboarea = outer; // set this to make the update work correctly
-        dataoffset = gcm.clamp(outer.bl);
-        update_region(outer);
-    } else {
-        area outercmp = outer;
-        unsigned nr_updates = 0;
-        if (outercmp.bl.y < vboarea.bl.y) {
-            update_region(area(outercmp.bl, vector2i(outercmp.tr.x, vboarea.bl.y - 1)));
-            outercmp.bl.y = vboarea.bl.y;
-            ++nr_updates;
+    try {
+        if (vboarea.empty() || vboarea.intersection(outer).empty()) {
+            vboarea = outer; // set this to make the update work correctly
+            dataoffset = gcm.clamp(outer.bl);
+            dftd_startup_log("geoclipmap::level::set_viewerpos: lvl=%u calling initial update_region(outer=(%d,%d)-(%d,%d))...",
+                             index, outer.bl.x, outer.bl.y, outer.tr.x, outer.tr.y);
+            update_region(outer);
+            dftd_startup_log("geoclipmap::level::set_viewerpos: lvl=%u initial update_region done.", index);
+        } else {
+            area outercmp = outer;
+            unsigned nr_updates = 0;
+            if (outercmp.bl.y < vboarea.bl.y) {
+                update_region(area(outercmp.bl, vector2i(outercmp.tr.x, vboarea.bl.y - 1)));
+                outercmp.bl.y = vboarea.bl.y;
+                ++nr_updates;
+            }
+            if (vboarea.tr.y < outercmp.tr.y) {
+                update_region(area(vector2i(outercmp.bl.x, vboarea.tr.y + 1), outercmp.tr));
+                outercmp.tr.y = vboarea.tr.y;
+                ++nr_updates;
+            }
+            if (outercmp.bl.x < vboarea.bl.x) {
+                update_region(area(outercmp.bl, vector2i(vboarea.bl.x - 1, outercmp.tr.y)));
+                outercmp.bl.x = vboarea.bl.x;
+                ++nr_updates;
+            }
+            if (vboarea.tr.x < outercmp.tr.x) {
+                update_region(area(vector2i(vboarea.tr.x + 1, outercmp.bl.y), outercmp.tr));
+                outercmp.tr.x = vboarea.tr.x;
+                ++nr_updates;
+            }
+            if (nr_updates > 2)
+                throw error("got more than 2 update regions?! BUG!");
         }
-        if (vboarea.tr.y < outercmp.tr.y) {
-            update_region(area(vector2i(outercmp.bl.x, vboarea.tr.y + 1), outercmp.tr));
-            outercmp.tr.y = vboarea.tr.y;
-            ++nr_updates;
-        }
-        if (outercmp.bl.x < vboarea.bl.x) {
-            update_region(area(outercmp.bl, vector2i(vboarea.bl.x - 1, outercmp.tr.y)));
-            outercmp.bl.x = vboarea.bl.x;
-            ++nr_updates;
-        }
-        if (vboarea.tr.x < outercmp.tr.x) {
-            update_region(area(vector2i(vboarea.tr.x + 1, outercmp.bl.y), outercmp.tr));
-            outercmp.tr.x = vboarea.tr.x;
-            ++nr_updates;
-        }
-        if (nr_updates > 2)
-            throw error("got more than 2 update regions?! BUG!");
+    } catch (const std::exception &e) {
+        dftd_startup_log("FATAL: Caught exception in level %u set_viewerpos: %s", index, e.what());
+        throw;
+    } catch (...) {
+        dftd_startup_log("FATAL: Caught unknown exception in level %u set_viewerpos!", index);
+        throw;
     }
     // we updated the vertices, so update area/offset
     dataoffset = gcm.clamp(outer.bl - vboarea.bl + dataoffset);
@@ -330,41 +357,18 @@ void geoclipmap::level::update_region(const geoclipmap::area &upar) {
     if (upar.empty())
         throw error("update area empty?! BUG!"); // continue; // can happen on initial update
     vector2i sz = upar.size();
-    // height data coordinates upar.bl ... upar.tr need to be updated, but what VBO offset?
-    // since data is stored toroidically in VBO, a rectangle can be split into up to
-    // 4 rectangles...
-    // we need to call get_height function with index as detail and the area as
-    // parameter...
-    // prepare a N*N height lookup/scratch buffer, fill in w*h samples, then feed
-    // the correct samples to the GPU
-    // maybe better prepare a VBO scratch buffer, maybe even one per level (doesn't cost
-    // too much ram), and store the fixed VBO data there
-    // that is x,y,height and height_c. the get_height function must write the correct
-    // values then (with stride) or enters x,y,h_c as well.
-    // yes, if get_height could give h and h_c at once, it would be better, and this
-    // can easily be done.
-    // get_height: takes upar and a target buffer and enters realx,realy,realz,realz_c
-    // z_c means z of coarser level, we must give some helper values to
-    // generate realx/realy or write it ourselfs (maybe better).
-    // data per vertex? 4 floats x,y,z,zc plus normal? or normal as texmap?
-    // normal computation is not trivial!
-
-    // update VBO toroidically
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u upar=(%d,%d)-(%d,%d) sz=(%d,%d)",
+                     index, upar.bl.x, upar.bl.y, upar.tr.x, upar.tr.y, sz.x, sz.y);
 
     // compute the heights first (+1 in every direction to compute normals too)
     vector2i upcrd = upar.bl + vector2i(-1, -1);
-    // idea: fill in height here only from current level
-    // fill in every 2nd x/y value by height of coarser level (we need m/2+1 values)
-    // interpolate missing heights manually here
-    // for that scratchbuffer needs to get enlarged possibly
-    // it depends on wether upcrd.xy is odd or even where to add lines for z_c computation
-    // later we need to compute n_c as well, so we need even more lines.
-    // note! do not call "x / 2" for int x, its more efficient to use "x >> 1"!
-    // It is even WRONG to call x / 2 sometimes, as -1 / 2 gives 0 and not -1 as the shift method does,
-    // when we want to round down...
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u calling compute_heights(index=%u, sz=(%d,%d))...",
+                     index, index, sz.x + 2, sz.y + 2);
     gcm.height_gen.compute_heights(index, upcrd, sz + vector2i(2, 2),
                                    &gcm.vboscratchbuf[2], geoclipmap_fperv,
                                    geoclipmap_fperv * (sz.x + 2));
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u compute_heights(index=%u) done.", index, index);
+
     unsigned ptr = 0;
     for (int y = 0; y < sz.y + 2; ++y) {
         vector2i upcrd2 = upcrd;
@@ -377,18 +381,17 @@ void geoclipmap::level::update_region(const geoclipmap::area &upar) {
         ++upcrd.y;
     }
 
-    // get heights of coarser level, only for values inside original scratchbuf area
-    // (without the +1 perimeter for normals). Note that upar.bl has always even
-    // numbers here, as border to next coarser level has always even number of
-    // vertices.
     upcrd.x = upar.bl.x >> 1; // need to shift here because values could be negative!
     upcrd.y = upar.bl.y >> 1;
     // sz.xy can be odd, so we must compute size with rounding up tr...
     const vector2i szc(((upar.tr.x + 1) >> 1) - upcrd.x + 1, ((upar.tr.y + 1) >> 1) - upcrd.y + 1);
     unsigned ptr3 = ptr = ((sz.x + 2) * (1 - (upar.bl.y & 1)) + (1 - (upar.bl.x & 1))) * geoclipmap_fperv;
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u calling compute_heights(index+1=%u, szc=(%d,%d))...",
+                     index, index + 1, szc.x, szc.y);
     gcm.height_gen.compute_heights(index + 1, upcrd, szc,
                                    &gcm.vboscratchbuf[ptr + 3], 2 * geoclipmap_fperv,
                                    geoclipmap_fperv * (sz.x + 2) * 2);
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u compute_heights(index+1=%u) done.", index, index + 1);
 
     // interpolate z_c, first fill in missing columns on even rows
     for (int y = 0; y < szc.y; ++y) {
@@ -403,22 +406,6 @@ void geoclipmap::level::update_region(const geoclipmap::area &upar) {
     }
 
     // interpolate z_c, first fill in missing rows
-    /* fixme: this isn't always exactly the same as the video card renders, but it should be.
-       This may be the cause for some terrain "popping" that can be seen on mountain tops,
-       when watching them against the horizon/sky.
-       Problem is that when a level is rendered like this:
-       z0---z1
-       |   /|
-       |  / |
-       | /  |
-       |/   |
-       z2---z3
-       the z_c values of the next finer levels should be the same as the rendering,
-       that is for the middle of that rectangle, z_c would be (z1+z2)/2 or if the
-       triangulation is opposite it would be (z0+z3)/2.
-       In fact this code computes it as (z0+z1+z2+z3)/4.
-       The effect is hardly visible, but a bit ugly...
-    */
     ptr = ptr3 + (sz.x + 2) * geoclipmap_fperv;
     for (int y = 0; y < szc.y - 1; ++y) {
         unsigned ptr2 = ptr;
@@ -430,13 +417,14 @@ void geoclipmap::level::update_region(const geoclipmap::area &upar) {
         }
         ptr += 2 * (sz.x + 2) * geoclipmap_fperv;
     }
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u interpolate z_c done.", index);
 
     // compute normals
     unsigned tptr = 0, tptr2 = 0;
-    // log_debug("tex scratch sz="<<sz);
-    //  first retrieve vector3f normals, then transform them to RGB normals
-    //  index-1 because normals have double resolution as geometry
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u calling compute_normals(detail=%d, sz*2=(%d,%d))...",
+                     index, int(index) - 1, sz.x * 2, sz.y * 2);
     gcm.height_gen.compute_normals(int(index) - 1, upar.bl * 2, sz * 2, &gcm.texnormalscratchbuf_3f[0]);
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u compute_normals done. Converting normals to RGB...", index);
     for (int y = 0; y < sz.y * 2; ++y) {
         for (int x = 0; x < sz.x * 2; ++x) {
             const vector3f &nm = gcm.texnormalscratchbuf_3f[tptr2++];
@@ -446,83 +434,49 @@ void geoclipmap::level::update_region(const geoclipmap::area &upar) {
             tptr += 3;
         }
     }
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u normals converted to RGB.", index);
 
     ptr = 0;
     geoclipmap::area vboupdate(gcm.clamp(upar.bl - vboarea.bl + dataoffset),
                                gcm.clamp(upar.tr - vboarea.bl + dataoffset));
-    // check for continuous update areas
-    // log_debug("vboupdate area="<<vboupdate.bl<<" | "<<vboupdate.tr);
-    // fixme: since texture/VBO updates are line by line anyway, we don't need to
-    // handle the y-wrap here...
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u vboupdate=(%d,%d)-(%d,%d)...",
+                     index, vboupdate.bl.x, vboupdate.bl.y, vboupdate.tr.x, vboupdate.tr.y);
     if (vboupdate.tr.x < vboupdate.bl.x) {
         // area crosses VBO border horizontally
-        // area 1 width gcm.resolution_vbo - bl.xy
-        // area 2 width tr.xy + 1
-#if 0
-		if (vboupdate.tr.y < vboupdate.bl.y) {
-			// area crosses VBO border horizontally and vertically
-			int szx = gcm.resolution_vbo - vboupdate.bl.x;
-			int szy = gcm.resolution_vbo - vboupdate.bl.y;
-			update_VBO_and_tex(vector2i(0, 0), sz.x, vector2i(szx, szy), vboupdate.bl);
-			update_VBO_and_tex(vector2i(szx, 0), sz.x, vector2i(vboupdate.tr.x + 1, szy),
-					   vector2i(gcm.mod(vboupdate.bl.x + szx), vboupdate.bl.y));
-			update_VBO_and_tex(vector2i(0, szy), sz.x, vector2i(szx, vboupdate.tr.y + 1),
-					   vector2i(vboupdate.bl.x, gcm.mod(vboupdate.bl.y + szy)));
-			update_VBO_and_tex(vector2i(szx, szy), sz.x, vector2i(vboupdate.tr.x + 1, vboupdate.tr.y + 1),
-					   vector2i(gcm.mod(vboupdate.bl.x + szx), gcm.mod(vboupdate.bl.y + szy)));
-		} else {
-#endif
-        // area crosses VBO border horizontally
         int szx = gcm.resolution_vbo - vboupdate.bl.x;
+        dftd_startup_log("geoclipmap::level::update_region: lvl=%u crosses border: szx=%d, calling update_VBO_and_tex twice...", index, szx);
         update_VBO_and_tex(vector2i(0, 0), sz.x, vector2i(szx, sz.y), vboupdate.bl);
         update_VBO_and_tex(vector2i(szx, 0), sz.x, vector2i(vboupdate.tr.x + 1, sz.y),
                            vector2i(gcm.mod(vboupdate.bl.x + szx), vboupdate.bl.y));
-#if 0
-		}
-	} else if (vboupdate.tr.y < vboupdate.bl.y) {
-		// area crosses VBO border vertically
-		int szy = gcm.resolution_vbo - vboupdate.bl.y;
-		update_VBO_and_tex(vector2i(0, 0), sz.x, vector2i(sz.x, szy), vboupdate.bl);
-		update_VBO_and_tex(vector2i(0, szy), sz.x, vector2i(sz.x, vboupdate.tr.y + 1),
-				   vector2i(vboupdate.bl.x, gcm.mod(vboupdate.bl.y + szy)));
-#endif
     } else {
         // no border crossed
+        dftd_startup_log("geoclipmap::level::update_region: lvl=%u no border crossed, calling update_VBO_and_tex...", index);
         update_VBO_and_tex(vector2i(0, 0), sz.x, sz, vboupdate.bl);
     }
+    dftd_startup_log("geoclipmap::level::update_region: lvl=%u all updates complete.", index);
 }
 
 void geoclipmap::level::update_VBO_and_tex(const vector2i &scratchoff,
                                            int scratchmod,
                                            const vector2i &sz,
                                            const vector2i &vbooff) {
-    /* fixme: CPU load is high, especially kernel part, could be cause of
-       these calls to GL.
-       We could at least reduce the glTexSubImage2D calls by copying the
-       texture data to a consecutive block. But then we need to do y-clipping
-       in the calling function.
-       And we could try buffer-mapping instead of many glBufferSubData calls
-    */
-    // log_debug("update2 off="<<scratchoff<<" sz="<<sz<<" vbooff="<<vbooff);
-    //  copy data to normals texture
-    //  we need to do it line by line anyway, as the source is not packed.
-    //  maybe we can get higher frame rates if it would be packed...
-    //  test showed that this is negligible
+    dftd_startup_log("geoclipmap::level::update_VBO_and_tex: lvl=%u off=(%d,%d) sz=(%d,%d) vbooff=(%d,%d)...",
+                     index, scratchoff.x, scratchoff.y, sz.x, sz.y, vbooff.x, vbooff.y);
     glActiveTexture(GL_TEXTURE1);
     normals->set_gl_texture();
     for (int y = 0; y < sz.y * 2; ++y) {
-        // log_debug("update texture xy off ="<<vbooff.x<<"|"<<gcm.mod(vbooff.y+y)<<" idx="<<((scratchoff.y+y)*scratchmod+scratchoff.x)*3);
         glTexSubImage2D(GL_TEXTURE_2D, 0 /* mipmap level */,
                         vbooff.x * 2, (vbooff.y * 2 + y) & (gcm.resolution_vbo_mod * 2 + 1), sz.x * 2, 1, GL_RGB, GL_UNSIGNED_BYTE,
                         &gcm.texnormalscratchbuf[((scratchoff.y * 2 + y) * scratchmod * 2 + scratchoff.x * 2) * 3]);
     }
     // copy data to real VBO.
-    // we need to do it line by line anyway.
     for (int y = 0; y < sz.y; ++y) {
         vertices.init_sub_data((vbooff.x + gcm.mod(vbooff.y + y) * gcm.resolution_vbo) * geoclipmap_fperv * 4,
                                sz.x * geoclipmap_fperv * 4,
                                &gcm.vboscratchbuf[((scratchoff.y + y + 1) * (scratchmod + 2) + 1 + scratchoff.x) * geoclipmap_fperv]);
     }
+    glActiveTexture(GL_TEXTURE0);
+    dftd_startup_log("geoclipmap::level::update_VBO_and_tex: lvl=%u done.", index);
 }
 
 static const int geoidx[2 * 4 * 6] = {
@@ -919,16 +873,16 @@ void geoclipmap::level::display(const frustum &f, bool is_mirror) const {
         indices.init_data(vbo_data_size * 4 /*GLuint*/, 0, GL_STATIC_DRAW);
     }
 #endif
-    indices.init_sub_data(0, nridx * 4, &gcm.idxscratchbuf[0]);
-
     // render the data
     if (nridx < 4)
         return; // first index is remove always, and we need at least 3 for one triangle
+    indices.init_sub_data(0, nridx * 4, &gcm.idxscratchbuf[0]);
+
     vertices.bind();
+    glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, geoclipmap_fperv * 4, (float *)0 + 0);
     glVertexAttribPointer(gcm.myshader_vattr_z_c_index[si], 1, GL_FLOAT, GL_FALSE, geoclipmap_fperv * 4, (float *)0 + 3);
     glEnableVertexAttribArray(gcm.myshader_vattr_z_c_index[si]);
-    vertices.unbind();
     indices.bind();
     // we always skip the first index here, because it is identical to the second,
     // that is because of the line/patch transition code (it is easier)
@@ -937,6 +891,7 @@ void geoclipmap::level::display(const frustum &f, bool is_mirror) const {
                         gcm.resolution_vbo * gcm.resolution_vbo - 1 /*max_vertex_index*/,
                         nridx - 1, GL_UNSIGNED_INT, (unsigned *)0 + 1); // skip first index
     indices.unbind();
+    vertices.unbind();
     glDisableVertexAttribArray(gcm.myshader_vattr_z_c_index[si]);
 
 #ifdef DEBUG_INDEX_USAGE

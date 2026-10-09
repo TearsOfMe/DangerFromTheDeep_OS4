@@ -33,6 +33,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <vector>
 
 // use float fftw (faster) or double (default) ?
+#ifndef WITH_FLOAT_FFTW
+#define WITH_FLOAT_FFTW 1
+#endif
 #ifdef WITH_FLOAT_FFTW
 #define FFT_COMPLEX_TYPE fftwf_complex
 #define FFT_REAL_TYPE float
@@ -70,6 +73,9 @@ class ocean_wave_generator {
     T w0;          // cycle time, 0.0 if no cycling needed
     std::vector<std::complex<T>> h0tilde;
     std::vector<std::complex<T>> htilde; // holds values for one fix time.
+    std::vector<T> wK2_tab;
+    std::vector<vector2t<T>> Kh_tab;
+    void init_precomputed_tables();
 
     ocean_wave_generator &operator=(const ocean_wave_generator &);
     static T myrnd();
@@ -224,12 +230,50 @@ std::complex<T> ocean_wave_generator<T>::h_tilde(const vector2t<T> &K, int kx, i
 }
 
 template <class T>
-void ocean_wave_generator<T>::compute_htilde(T time) {
+void ocean_wave_generator<T>::init_precomputed_tables() {
+    wK2_tab.resize((N / 2 + 1) * N);
+    Kh_tab.resize((N / 2 + 1) * N);
     const T pi2 = T(2.0 * M_PI);
     for (int y = 0; y <= N / 2; ++y) {
         for (int x = 0; x < N; ++x) {
+            int idx = y * N + x;
             vector2t<T> K(pi2 * (x - N / 2) / Lm, pi2 * (y - N / 2) / Lm);
-            htilde[y * N + x] = h_tilde(K, x, y, time);
+            T wK = sqrt(GRAVITY * K.length());
+            wK2_tab[idx] = (w0 == T(0.0)) ? wK : T(floor(wK / w0) * w0);
+
+            vector2t<T> Kdisp(T(x - N / 2), T(y - N / 2));
+            T klen = Kdisp.length();
+            if (klen != T(0.0))
+                Kh_tab[idx] = Kdisp * (T(1.0) / klen);
+            else
+                Kh_tab[idx] = vector2t<T>(T(0.0), T(0.0));
+        }
+    }
+}
+
+template <class T>
+void ocean_wave_generator<T>::compute_htilde(T time) {
+    for (int y = 0; y <= N / 2; ++y) {
+        int y_row = y * N;
+        int y_h0 = y * (N + 1);
+        int my_h0 = (N - y) * (N + 1);
+        for (int x = 0; x < N; ++x) {
+            int idx = y_row + x;
+            T xp = wK2_tab[idx] * time;
+            T cxp, sxp;
+            if constexpr (std::is_same_v<T, float>) {
+                __builtin_sincosf(xp, &sxp, &cxp);
+            } else {
+                sxp = sin(xp);
+                cxp = cos(xp);
+            }
+            const std::complex<T> &h0_k = h0tilde[y_h0 + x];
+            const std::complex<T> &h0_mk = h0tilde[my_h0 + (N - x)];
+            T a = h0_k.real(), b = h0_k.imag();
+            T c = h0_mk.real(), d = -h0_mk.imag();
+            T r = (a + c) * cxp + (d - b) * sxp;
+            T i = (a - c) * sxp + (b + d) * cxp;
+            htilde[idx] = std::complex<T>(r, i);
         }
     }
 }
@@ -246,6 +290,7 @@ ocean_wave_generator<T>::ocean_wave_generator(
       w0(cycletime < T(0.0) ? T(0.0) : T(2.0 * M_PI) / cycletime) {
     h0tilde.resize((N + 1) * (N + 1));
     compute_h0tilde();
+    init_precomputed_tables();
     htilde.resize(N * (N / 2 + 1));
     allocmem();
     plan = FFT_CREATE_PLAN(N, N, fft_in, fft_out, 0);
@@ -254,7 +299,8 @@ ocean_wave_generator<T>::ocean_wave_generator(
 
 template <class T>
 ocean_wave_generator<T>::ocean_wave_generator(const ocean_wave_generator<T> &owg)
-    : N(owg.N), W(owg.W), v(owg.v), a(owg.a), Lm(owg.Lm), w0(owg.w0), h0tilde(owg.h0tilde) {
+    : N(owg.N), W(owg.W), v(owg.v), a(owg.a), Lm(owg.Lm), w0(owg.w0),
+      h0tilde(owg.h0tilde), wK2_tab(owg.wK2_tab), Kh_tab(owg.Kh_tab) {
     // clear htilde, create new fftw plans.
     htilde.resize(N * (N / 2 + 1));
     allocmem();
@@ -267,6 +313,7 @@ ocean_wave_generator<T>::ocean_wave_generator(const ocean_wave_generator<T> &owg
                                               int clearlowfreq)
     : N(gridsize <= owg.N ? gridsize : owg.N), W(owg.W), v(owg.v), a(owg.a), Lm(owg.Lm), w0(owg.w0) {
     h0tilde.resize((N + 1) * (N + 1));
+    init_precomputed_tables();
     // copy h0 tilde instead of computing it
     int offset = (owg.N - N) / 2;
     for (int y = 0; y <= N; ++y) {
@@ -411,14 +458,9 @@ void ocean_wave_generator<T>::compute_displacements(const T &scalefac,
                                                     std::vector<vector2t<T>> &wavedisplacements) const {
     for (int y = 0; y <= N / 2; ++y) {
         for (int x = 0; x < N; ++x) {
-            const std::complex<T> &c = htilde[y * N + x];
-            vector2t<T> K((x - N / 2), (y - N / 2)); // the factor 2*PI/Lm gets divided out later, so we don't need to multiply it.
-            T k = K.length();
-            vector2t<T> Kh;
-            if (k != 0)
-                Kh = K * (T(1) / k);
-            else
-                Kh.x = Kh.y = T(0);
+            int idx = y * N + x;
+            const std::complex<T> &c = htilde[idx];
+            const vector2t<T> &Kh = Kh_tab[idx];
             int ptr = x * (N / 2 + 1) + y;
             fft_in[ptr][0] = c.imag() * Kh.x;
             fft_in[ptr][1] = -c.real() * Kh.x;

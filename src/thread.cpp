@@ -30,19 +30,43 @@
 #include "system.h"
 #include "thread.h"
 
+#ifdef __amigaos4__
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_thread.h>
+
+int thread::thread_entry_sdl(void *arg) {
+    thread *t = static_cast<thread *>(arg);
+    try {
+        t->run();
+    } catch (const std::exception &e) {
+        dftd_startup_log("thread_entry_sdl: Exception in thread '%s': %s", t ? t->myname.c_str() : "null", e.what());
+        if (t) t->thread_error_message = e.what();
+    } catch (...) {
+        dftd_startup_log("thread_entry_sdl: Unknown exception in thread '%s'", t ? t->myname.c_str() : "null");
+        if (t) t->thread_error_message = "UNKNOWN";
+    }
+    return 0;
+}
+#endif
+
 void thread::thread_entry(thread *arg) {
     thread *t = arg;
     try {
         t->run();
-    } catch (std::exception &e) {
+    } catch (const std::exception &e) {
+        dftd_startup_log("thread_entry: Exception in thread '%s': %s", t ? t->myname.c_str() : "null", e.what());
         t->thread_error_message = e.what();
     } catch (...) {
+        dftd_startup_log("thread_entry: Unknown exception in thread '%s'", t ? t->myname.c_str() : "null");
         t->thread_error_message = "UNKNOWN";
     }
 }
 
 thread::thread(const char *name)
     : thread_obj_ptr(nullptr),
+#ifdef __amigaos4__
+      thread_sdl_ptr(nullptr),
+#endif
       thread_abort_request(false),
       thread_state(THRSTAT_NONE),
       myname(name ? name : "unnamed") {
@@ -56,18 +80,20 @@ void thread::run() {
         init();
     } catch (std::exception &e) {
         // failed to initialize, report that
+        dftd_startup_log("thread::run: Exception during init of thread '%s': %s", myname.c_str(), e.what());
         mutex_locker ml(thread_state_mutex);
         thread_error_message = e.what();
         thread_state.store(THRSTAT_INIT_FAILED);
         thread_start_cond.signal();
-        throw;
+        return;
     } catch (...) {
         // failed to initialize, report that
+        dftd_startup_log("thread::run: Unknown exception during init of thread '%s'", myname.c_str());
         mutex_locker ml(thread_state_mutex);
         thread_error_message = "UNKNOWN";
         thread_state.store(THRSTAT_INIT_FAILED);
         thread_start_cond.signal();
-        throw;
+        return;
     }
     // initialization was successfully, report that
     {
@@ -83,16 +109,18 @@ void thread::run() {
         log::instance().end_thread();
     } catch (std::exception &e) {
         // thread execution failed
+        dftd_startup_log("thread::run: Exception in loop of thread '%s': %s", myname.c_str(), e.what());
         mutex_locker ml(thread_state_mutex);
         thread_error_message = e.what();
         thread_state.store(THRSTAT_ABORTED);
-        throw;
+        return;
     } catch (...) {
         // thread execution failed
+        dftd_startup_log("thread::run: Unknown exception in loop of thread '%s'", myname.c_str());
         mutex_locker ml(thread_state_mutex);
         thread_error_message = "UNKNOWN";
         thread_state.store(THRSTAT_ABORTED);
-        throw;
+        return;
     }
     // normal execution finished
     mutex_locker ml(thread_state_mutex);
@@ -100,10 +128,14 @@ void thread::run() {
 }
 
 thread::~thread() {
+#ifdef __amigaos4__
+    // thread_sdl_ptr is cleaned up in join()
+#else
     if (thread_obj_ptr) {
         delete thread_obj_ptr;
         thread_obj_ptr = nullptr;
     }
+#endif
 }
 
 void thread::request_abort() {
@@ -118,12 +150,20 @@ void thread::start() {
     if (thread_state.load() != THRSTAT_NONE)
         throw error("thread already started, but start() called again");
 
+#ifdef __amigaos4__
+    thread_sdl_ptr = SDL_CreateThread(thread_entry_sdl, myname.c_str(), this);
+    if (!thread_sdl_ptr) {
+        dftd_startup_log("thread::start: SDL_CreateThread failed for '%s': %s", myname.c_str(), SDL_GetError());
+        throw error(std::string("thread start failed: ") + SDL_GetError());
+    }
+#else
     thread_obj_ptr = new std::thread(thread_entry, this);
     if (!thread_obj_ptr->joinable()) {
         delete thread_obj_ptr;
         thread_obj_ptr = nullptr;
         throw error("thread start failed");
     }
+#endif
     // we could wait with timeout, but how long? init could take any time...
 
     thread_start_cond.wait(thread_state_mutex);
@@ -137,9 +177,17 @@ void thread::start() {
 }
 
 void thread::join() {
+#ifdef __amigaos4__
+    if (thread_sdl_ptr) {
+        int status = 0;
+        SDL_WaitThread(thread_sdl_ptr, &status);
+        thread_sdl_ptr = nullptr;
+    }
+#else
     if (thread_obj_ptr && thread_obj_ptr->joinable()) {
         thread_obj_ptr->join();
     }
+#endif
     std::string error_msg = thread_error_message; // Copy before delete
     delete this;
     if (!error_msg.empty())
@@ -159,18 +207,32 @@ void thread::destruct() {
 }
 
 void thread::sleep(unsigned ms) {
+#ifdef __amigaos4__
+    SDL_Delay(ms);
+#else
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+#endif
 }
 
 thread::id thread::get_my_id() {
+#ifdef __amigaos4__
+    return static_cast<uint64_t>(SDL_ThreadID());
+#else
     // Convert std::thread::id to uint64_t
     std::thread::id tid = std::this_thread::get_id();
     std::ostringstream oss;
     oss << tid;
     return std::stoull(oss.str());
+#endif
 }
 
 thread::id thread::get_id() const {
+#ifdef __amigaos4__
+    if (thread_sdl_ptr) {
+        return static_cast<uint64_t>(SDL_GetThreadID(thread_sdl_ptr));
+    }
+    return 0;
+#else
     if (thread_obj_ptr) {
         std::thread::id tid = thread_obj_ptr->get_id();
         std::ostringstream oss;
@@ -178,6 +240,7 @@ thread::id thread::get_id() const {
         return std::stoull(oss.str());
     }
     return 0;
+#endif
 }
 
 bool thread::is_running() {

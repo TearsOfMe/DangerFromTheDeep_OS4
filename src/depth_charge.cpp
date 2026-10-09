@@ -50,13 +50,16 @@ void depth_charge::save(xml_elem &parent) const {
     parent.add_child("explosion_depth").set_attr(explosion_depth);
 }
 
-void depth_charge::simulate(double delta_time) {
-    sea_object::simulate(delta_time);
+bool depth_charge::simulate(double delta_time) {
+    if (!sea_object::simulate(delta_time))
+        return false;
 
     if (position.z < -explosion_depth) {
         gm.dc_explosion(*this);
         kill(); // dc is "dead"
+        return false;
     }
+    return true;
 }
 
 void depth_charge::compute_force_and_torque(vector3 &F, vector3 &T) const {

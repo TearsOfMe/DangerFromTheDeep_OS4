@@ -26,7 +26,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "matrix3.h"
 #include "oglext/OglExt.h"
+#include "altivec_detect.h"
+#include "altivec_math.h"
 #include <string.h>
+#include <type_traits>
 
 /// a 4x4 matrix, reimplemented for 4x4 case for speed issues
 template <class D>
@@ -121,6 +124,13 @@ class matrix4t {
 
     /// multiply matrices
     matrix4t<D> operator*(const matrix4t<D> &other) const {
+        if constexpr (std::is_same_v<D, float>) {
+            if (cpu_has_altivec()) {
+                matrix4t<D> r(int(0));
+                altivec_matrix4_mul(r.elemarray(), elemarray(), other.elemarray());
+                return r;
+            }
+        }
         matrix4t<D> r(int(0));
         r.values[0] = values[0] * other.values[0] + values[1] * other.values[4] + values[2] * other.values[8] + values[3] * other.values[12];
         r.values[1] = values[0] * other.values[1] + values[1] * other.values[5] + values[2] * other.values[9] + values[3] * other.values[13];

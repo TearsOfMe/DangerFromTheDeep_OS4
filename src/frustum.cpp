@@ -91,3 +91,11 @@ frustum frustum::get_mirrored() const {
     }
     return f;
 }
+
+bool frustum::sphere_in_frustum(const vector3 &center, double radius) const {
+    for (size_t i = 0; i < planes.size(); ++i) {
+        if (planes[i].distance(center) < -radius)
+            return false;
+    }
+    return true;
+}

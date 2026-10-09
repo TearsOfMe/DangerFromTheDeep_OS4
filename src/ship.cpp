@@ -270,6 +270,8 @@ ship::ship(game &gm_, const xml_elem &parent)
 }
 
 void ship::sink() {
+    if (alive_stat == defunct || alive_stat == dead || alive_stat == dead2 || alive_stat == inactive)
+        return;
     flooding_speed += 40000; // 40 tons per second
     sea_object::set_inactive();
     if (myfire) {
@@ -513,8 +515,9 @@ void ship::save(xml_elem &parent) const {
 #endif
 }
 
-void ship::simulate(double delta_time) {
-    sea_object::simulate(delta_time);
+bool ship::simulate(double delta_time) {
+    if (!sea_object::simulate(delta_time))
+        return false;
 
     // screw animation
     if (throttle != 0) {
@@ -584,7 +587,7 @@ void ship::simulate(double delta_time) {
         if (position.z < -200) // used for ships.
             kill();
         throttle = stop;
-        return;
+        return false;
     }
 
     // Adjust fuel_level.
@@ -672,6 +675,7 @@ void ship::simulate(double delta_time) {
 
         gun_turret++;
     }
+    return true;
 }
 
 // #include "global_data.h"
@@ -680,7 +684,7 @@ void ship::steering_logic() {
     if (head_to_fixed == HEAD_TO_UNDEFINED)
         return;
 
-    // if angle to target course is > 180ù with set steering direction, just set
+    // if angle to target course is > 180¬ù with set steering direction, just set
     // rudder to full angle and turn. But only if demanded by special head_to_fixed value.
     if (head_to_fixed & HEAD_TO_FORCE_DIRECTION) {
         if (heading.diff_in_direction(head_to_fixed & HEAD_TO_LEFT, head_to) >= 180.0) {
@@ -715,7 +719,7 @@ void ship::steering_logic() {
     double clamp = head_to_fixed & HEAD_TO_ALLOW_HARD_RUDDER ? 1.0 : 0.5;
     double rd = myclamp(error / 5.0, -clamp, clamp);
     rudder.set_to(rd);
-    // set desired direction, so the 180ù degree check code above doesn't abort
+    // set desired direction, so the 180¬ù degree check code above doesn't abort
     head_to_fixed = head_to_param((head_to_fixed & HEAD_TO_ALLOW_HARD_RUDDER) | (rd < 0 ? HEAD_TO_LEFT : HEAD_TO_RIGHT));
     // when error below a certain limit, set head_to_fixed=false, rudder_to=ruddermidships
     if (fabs(anglediff) <= 0.25 && fabs(rudder.angle) < 1.0) {
@@ -730,7 +734,7 @@ void ship::head_to_course(const angle &a, int direction, bool hard_rudder) {
     bool turn_left = false;
     log_debug("HEAD TO " << a << " hdg=" << get_heading() << " dir=" << direction << " hard=" << hard_rudder);
     if (direction != 0) {
-        // if we have to turn more than 180ù to the target course,
+        // if we have to turn more than 180¬ù to the target course,
         // a helmsman would normally turn in opposite direction,
         // because target course can be reached faster that way.
         // But in case of set direction, we have to turn in

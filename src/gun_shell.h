@@ -55,7 +55,7 @@ class gun_shell : public sea_object {
     virtual void load(const xml_elem &parent);
     virtual void save(xml_elem &parent) const;
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
     virtual void display(const texture *caustic_map = NULL) const;
     virtual float surface_visibility(const vector2 &watcher) const;
     // acceleration is only gravity and already handled by sea_object

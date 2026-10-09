@@ -83,6 +83,7 @@ class xml_elem {
     std::string get_name() const;
     void add_child_text(const std::string &txt); // add text child
     std::string child_text() const;              // returns value of text child, throws error if there is none
+    const char *child_text_cstr() const;
 
     // get name of document
     std::string doc_name() const;
@@ -131,6 +132,7 @@ class xml_doc {
     void save();
     xml_elem first_child();
     xml_elem child(const std::string &name);
+    bool has_child(const std::string &name) const;
     xml_elem add_child(const std::string &name);
     std::string get_filename() const;
 };

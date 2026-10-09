@@ -174,6 +174,6 @@ const char *log::get_thread_name() const {
 const char *log::get_thread_name(unsigned tid) const {
     std::map<uint32_t, std::string>::const_iterator it = mylogint->threadnames.find(tid);
     if (it == mylogint->threadnames.end())
-        throw std::runtime_error("no thread name registered for thread! BUG!");
+        return "unknown";
     return it->second.c_str();
 }

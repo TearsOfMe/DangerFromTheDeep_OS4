@@ -15,19 +15,22 @@
   <img src="https://img.shields.io/badge/SDL3-supported-8B0000?logo=sdl" alt="SDL3" />
   <img src="https://img.shields.io/badge/OpenGL-2.x-5586A4?logo=opengl" alt="OpenGL" />
   <img src="https://img.shields.io/badge/Linux-Wayland-FCC624?logo=linux&logoColor=black" alt="Linux" />
+  <img src="https://img.shields.io/badge/Platform-AmigaOS%204.1-red?logo=amiga" alt="AmigaOS 4.1" />
+  <img src="https://img.shields.io/badge/CPU-PowerPC%20%2B%20AltiVec-orange" alt="PowerPC" />
+  <img src="https://img.shields.io/badge/3D-Mesa%203D%20%2F%20Warp3D%20Nova-green" alt="Mesa 3D" />
   <img src="https://img.shields.io/badge/License-GPL%20v2-blue" alt="GPL v2" />
-</p>
-
-<p align="center">
-  <img src="https://github.com/cavazquez/dangerdeep/actions/workflows/ci.yml/badge.svg" alt="CI" />
-  <img src="https://github.com/cavazquez/dangerdeep/actions/workflows/format.yml/badge.svg" alt="Format" />
-  <img src="https://github.com/cavazquez/dangerdeep/actions/workflows/lint.yml/badge.svg" alt="Lint" />
-  <img src="https://github.com/cavazquez/dangerdeep/actions/workflows/coverage.yml/badge.svg" alt="Coverage" />
 </p>
 
 ---
 
-Comandá un U-Boot en un entorno 3D realista: sonar, TDC, torpedos y ataques a convoyes con física y sensores fieles a la época.
+## ⚓ AmigaOS 4.1 Port (PowerPC)
+This repository contains the official native **AmigaOS 4.1** port by **TearsOfMe**.
+
+- **Hardware 3D**: Accelerated via Mesa 3D & Warp3D Nova (RadeonHD / RadeonRX).
+- **SIMD / AltiVec**: Vector acceleration for wave generation, terrain vertex processing, and 3D transforms.
+- **Optimized Navigation Map**: Fast chunk caching and efficient rendering on classic and modern PPC boards (AmigaOne X1000, X5000, Sam460, A1222+).
+- **Documentation**: Comprehensive German user manual ([`amiga/ANLEITUNG.txt`](amiga/ANLEITUNG.txt)) and OS4Depot readme ([`amiga/DangerFromTheDeep.readme`](amiga/DangerFromTheDeep.readme)).
+- **Licensing**: Full breakdown in [`amiga/LIZENZEN.txt`](amiga/LIZENZEN.txt).
 
 ---
 

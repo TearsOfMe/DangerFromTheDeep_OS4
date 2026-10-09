@@ -52,6 +52,8 @@ class frustum {
     void translate(const vector3 &delta);
     /// generate mirrored frustum (at z=0 plane)
     frustum get_mirrored() const;
+    /// test if bounding sphere intersects or is inside frustum
+    bool sphere_in_frustum(const vector3 &center, double radius) const;
 };
 
 #endif

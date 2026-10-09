@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "log.h"
 #include "oglext/OglExt.h"
 #include "system.h"
+#include "display_backend.h"
 #include <stdexcept>
 
 vertexbufferobject::vertexbufferobject(bool indexbuffer)
@@ -35,9 +36,12 @@ vertexbufferobject::vertexbufferobject(bool indexbuffer)
 }
 
 vertexbufferobject::~vertexbufferobject() {
-    if (mapped)
-        unmap();
-    glDeleteBuffers(1, &id);
+    if (display_has_gl_context()) {
+        if (mapped)
+            unmap();
+        if (id)
+            glDeleteBuffers(1, &id);
+    }
 }
 
 void vertexbufferobject::init_data(unsigned size_, const void *data, int usage) {

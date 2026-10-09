@@ -28,6 +28,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <memory>
 #include <sstream>
 
+void dftd_startup_log(const char *fmt, ...);
+void dftd_set_debug_log(bool enabled);
+void dftd_set_in_game_loop(bool in_loop);
+bool dftd_is_debug_log_enabled();
+
 #ifdef DEBUG
 #define log_template(x, y)                              \
     do {                                                \

@@ -18,12 +18,19 @@ static void sdl_throw(const char* msg) {
 }
 
 // --- Inicialización ---
+static bool s_has_gl_context = false;
+
+bool display_has_gl_context() {
+    return s_has_gl_context && (SDL_GL_GetCurrentContext() != nullptr);
+}
+
 void display_init_video() {
     if (!SDL_Init(SDL_INIT_VIDEO))  // SDL3: returns false on failure
         sdl_throw("video init failed");
 }
 
 void display_quit_video() {
+    s_has_gl_context = false;
     SDL_Quit();
 }
 
@@ -93,11 +100,13 @@ void display_create_window(const char* caption, int w, int h, bool fullscreen,
     if (!SDL_GL_SetSwapInterval(vsync))
         sdl_throw("setting VSync failed");
 
+    s_has_gl_context = true;
     *out_window = win;
     *out_glcontext = ctx;
 }
 
 void display_destroy_window(void* window, void* glcontext) {
+    s_has_gl_context = false;
     if (glcontext)
         SDL_GL_DestroyContext(static_cast<SDL_GLContext>(glcontext));
     if (window)

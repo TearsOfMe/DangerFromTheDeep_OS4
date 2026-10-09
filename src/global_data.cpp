@@ -60,14 +60,20 @@ font *font_arial = 0, *font_jphsl = 0, *font_vtremington10 = 0, *font_vtremingto
 // display loading progress
 list<string> loading_screen_messages;
 unsigned starttime;
+static std::unique_ptr<objcachet<image>::reference> loading_background_ref;
+
 void display_loading_screen() {
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
     sys().prepare_2d_drawing();
 
-    // display a nice loading image in the background (RAII: reference released when scope ends)
-    objcachet<image>::reference background(imagecache(), "entryscreen.png");
-    if (background.get()) background->draw(0, 0);
+    // display a nice loading image in the background (keep cached to avoid reloading from disk each step)
+    if (!loading_background_ref) {
+        loading_background_ref = std::make_unique<objcachet<image>::reference>(imagecache(), "entryscreen.png");
+    }
+    if (loading_background_ref && loading_background_ref->get()) {
+        (*loading_background_ref)->draw(0, 0);
+    }
 
     unsigned fh = font_arial->get_height();
     unsigned y = 0;

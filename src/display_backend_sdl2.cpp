@@ -18,12 +18,19 @@ static void sdl_throw(const char* msg) {
 }
 
 // --- Inicialización ---
+static bool s_has_gl_context = false;
+
+bool display_has_gl_context() {
+    return s_has_gl_context && (SDL_GL_GetCurrentContext() != nullptr);
+}
+
 void display_init_video() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
         sdl_throw("video init failed");
 }
 
 void display_quit_video() {
+    s_has_gl_context = false;
     SDL_Quit();
 }
 
@@ -38,8 +45,13 @@ void display_get_version(int* major, int* minor, int* patch) {
 void display_get_available_resolutions(int display_index, std::list<vector2i>& out) {
     out.clear();
     int n = SDL_GetNumDisplayModes(display_index);
-    if (n <= 0)
-        sdl_throw("Failed to query number of display modes");
+    if (n <= 0) {
+        out.push_back(vector2i(1024, 768));
+        out.push_back(vector2i(800, 600));
+        out.push_back(vector2i(1280, 720));
+        out.push_back(vector2i(1920, 1080));
+        return;
+    }
     SDL_DisplayMode dm;
     for (int i = 0; i < n; ++i) {
         if (SDL_GetDisplayMode(display_index, i, &dm) == 0)
@@ -47,40 +59,67 @@ void display_get_available_resolutions(int display_index, std::list<vector2i>& o
     }
 }
 
+void dftd_startup_log(const char *fmt, ...);
+
 void display_create_window(const char* caption, int w, int h, bool fullscreen,
                           bool multisample, int multisample_level, int vsync,
                           void** out_window, void** out_glcontext) {
-    Uint32 flags = SDL_WINDOW_OPENGL;
+    dftd_startup_log("Creating SDL window: %dx%d (fullscreen=%d)...", w, h, fullscreen ? 1 : 0);
+    Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
     if (fullscreen)
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
-    if (SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) < 0)
-        sdl_throw("setting double buffer failed");
-    if (SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, multisample ? 1 : 0) < 0)
-        sdl_throw("setting multisampling failed");
-    if (SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, multisample_level) < 0)
-        sdl_throw("setting multisample level failed");
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+#ifdef __amigaos4__
+    // GL4ES / Mesa requires OpenGL 2.1 context hints
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+#endif
+    if (multisample) {
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, multisample_level);
+    }
 
     SDL_Window* win = SDL_CreateWindow(caption,
                                       SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                                       w, h, flags);
-    if (!win)
+    if (!win) {
+        dftd_startup_log("SDL_CreateWindow failed: %s", SDL_GetError());
+        std::cout << "SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
         sdl_throw("Video mode set failed");
+    }
 
+    dftd_startup_log("SDL window created successfully. Creating OpenGL context...");
     SDL_GLContext ctx = SDL_GL_CreateContext(win);
     if (!ctx) {
+        dftd_startup_log("SDL_GL_CreateContext failed (%s), retrying with default attributes...", SDL_GetError());
+        SDL_GL_ResetAttributes();
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+        ctx = SDL_GL_CreateContext(win);
+    }
+    if (!ctx) {
+        dftd_startup_log("SDL_GL_CreateContext failed completely: %s", SDL_GetError());
+        std::cout << "SDL_GL_CreateContext failed: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(win);
         sdl_throw("Couldn't create OpenGL context");
     }
 
-    if (SDL_GL_SetSwapInterval(vsync) < 0)
-        sdl_throw("setting VSync failed");
+    dftd_startup_log("OpenGL context created successfully.");
+    s_has_gl_context = true;
+
+    if (vsync != 0) {
+        SDL_GL_SetSwapInterval(vsync);
+    }
 
     *out_window = win;
     *out_glcontext = ctx;
 }
 
 void display_destroy_window(void* window, void* glcontext) {
+    s_has_gl_context = false;
     if (glcontext)
         SDL_GL_DeleteContext(static_cast<SDL_GLContext>(glcontext));
     if (window)
@@ -120,7 +159,6 @@ void display_delay(uint32_t ms) {
 }
 
 void display_setup_events_and_cursor() {
-    SDL_EventState(SDL_WINDOWEVENT_SIZE_CHANGED, SDL_IGNORE);
     SDL_EventState(SDL_SYSWMEVENT, SDL_IGNORE);
     SDL_JoystickEventState(SDL_IGNORE);
     SDL_ShowCursor(SDL_ENABLE);
@@ -172,6 +210,10 @@ game_event sdl_to_game(const SDL_Event& e) {
         ge.wheel_y = static_cast<float>(e.wheel.y);
         break;
     case SDL_WINDOWEVENT:
+        if (e.window.event == SDL_WINDOWEVENT_CLOSE) {
+            ge.type = event_type::QUIT;
+            break;
+        }
         ge.type = event_type::WINDOW_EVENT;
         ge.window_id = e.window.windowID;
         ge.window_data1 = e.window.data1;
@@ -196,6 +238,9 @@ std::list<game_event> poll_display_events() {
     std::list<game_event> events;
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        if (e.type == SDL_QUIT || (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_CLOSE)) {
+            dftd_startup_log("poll_display_events: SDL_PollEvent returned QUIT or WINDOW_CLOSE");
+        }
         game_event ge = sdl_to_game(e);
         if (ge.type != event_type::NONE)
             events.push_back(ge);

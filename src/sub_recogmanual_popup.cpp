@@ -50,23 +50,44 @@ sub_recogmanual_popup::sub_recogmanual_popup(user_interface &ui_)
     background_nightlight = std::make_unique<image>(get_image_dir() + "shiprecog_popup_redlight.png");
 
     std::list<string> ship_ids = data_file_handler::instance().get_ship_list();
+    dftd_startup_log("sub_recogmanual_popup: scanning %u ship silhouettes...", (unsigned)ship_ids.size());
     for (list<string>::iterator it = ship_ids.begin(); it != ship_ids.end(); it++) {
-        try {
-            std::unique_ptr<image> img(new image(data_file_handler::instance().get_path(*it) + (*it) + "_silhouette.png"));
-            silhouettes.push_back(std::move(img));
+        string sil_path = data_file_handler::instance().get_path(*it) + (*it) + "_silhouette.png";
+        FILE *fsil = fopen(sil_path.c_str(), "rb");
+        if (!fsil)
+            continue; // Silhouette does not exist, skip without exception
+        fclose(fsil);
 
-            xml_doc doc(data_file_handler::instance().get_filename(*it));
+        string xml_path = data_file_handler::instance().get_filename(*it);
+        FILE *fxml = fopen(xml_path.c_str(), "rb");
+        if (!fxml)
+            continue;
+        fclose(fxml);
+
+        try {
+            xml_doc doc(xml_path);
             doc.load();
+            if (!doc.has_child("dftd-ship"))
+                continue;
             xml_elem elem = doc.child("dftd-ship");
+            if (!elem.has_child("shipmanual"))
+                continue;
             elem = elem.child("shipmanual");
+
+            std::unique_ptr<image> img(new image(sil_path));
+            silhouettes.push_back(std::move(img));
             displacements.push_back(elem.attr("displacement"));
             lengths.push_back(elem.attr("length"));
             classes.push_back(elem.attr("class"));
             weapons.push_back(elem.attr("weapons"));
             countries.push_back(elem.attr("countries"));
-        } catch (exception &e) { // fixme: remove the try..catch when all silhouette files are on place
+        } catch (const std::exception &e) {
+            dftd_startup_log("sub_recogmanual_popup: skipping '%s': %s", it->c_str(), e.what());
+        } catch (...) {
+            dftd_startup_log("sub_recogmanual_popup: skipping '%s' (unknown error)", it->c_str());
         }
     }
+    dftd_startup_log("sub_recogmanual_popup: loaded %u silhouettes successfully.", (unsigned)silhouettes.size());
 }
 
 bool sub_recogmanual_popup::process_input(class game &gm, const game_event &event) {

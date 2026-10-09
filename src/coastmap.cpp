@@ -127,13 +127,15 @@ void coastsegment::cacheentry::push_back_point(const vector2 &p) {
 void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, int detail) const {
     if (type > 1) {
         // cache generated and unchanged?
-        if (pointcache.size() > 0 && pointcachedetail == detail)
+        if (cache_generated && pointcachedetail == detail)
             return;
 
-        //	cout << "creating cache entry for segment " << roff << " empty? " << (pointcache.size() > 0) << " cached detail " << pointcachedetail << " new detail " << detail << "\n";
         // invalidate cache (detail changed or initial generation)
         pointcachedetail = detail;
+        cache_generated = true;
         pointcache.clear();
+        cached_mesh.verts.clear();
+        cached_mesh.texcoords.clear();
 
         unsigned nrcl = segcls.size();
         vector<bool> cl_handled(nrcl, false);
@@ -215,12 +217,31 @@ void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, 
             ce.indices = triangulate::compute(ce.points);
             pointcache.push_back(ce);
         }
+
+        // Precompute mesh vertices and texture coordinates for fast batch rendering
+        vector2f tc0 = cm.segcoord_to_texc(x, y);
+        vector2f tc1 = cm.segcoord_to_texc(x + 1, y + 1);
+        unsigned nrv = 0;
+        for (vector<cacheentry>::const_iterator cit = pointcache.begin(); cit != pointcache.end(); ++cit)
+            nrv += cit->indices.size();
+        cached_mesh.verts.reserve(nrv);
+        cached_mesh.texcoords.reserve(nrv);
+        float inv_segw = 1.0f / float(cm.segw_real);
+        for (vector<cacheentry>::const_iterator cit = pointcache.begin(); cit != pointcache.end(); ++cit) {
+            for (vector<unsigned>::const_iterator tit = cit->indices.begin(); tit != cit->indices.end(); ++tit) {
+                const vector2 &v = cit->points[*tit];
+                float ex = float(v.x) * inv_segw;
+                float ey = float(v.y) * inv_segw;
+                float ax = 1.0f - ex;
+                float ay = 1.0f - ey;
+                cached_mesh.verts.push_back(vector2f(float(v.x), float(v.y)));
+                cached_mesh.texcoords.push_back(vector2f(tc0.x * ax + tc1.x * ex, tc0.y * ay + tc1.y * ey));
+            }
+        }
     }
 }
 
 void coastsegment::draw_as_map(const class coastmap &cm, int x, int y, int detail) const {
-    // cout<<"segment draw " << x << "," << y << " dtl " << detail << " tp " << type << "\n";
-    //  fixme, use display lists here
     if (type == 1) {
         vector2f tc0 = cm.segcoord_to_texc(x, y);
         vector2f tc1 = cm.segcoord_to_texc(x + 1, y + 1);
@@ -229,27 +250,14 @@ void coastsegment::draw_as_map(const class coastmap &cm, int x, int y, int detai
                                   tc0, tc1)
             .render();
     } else if (type > 1) {
-        vector2f tc0 = cm.segcoord_to_texc(x, y);
-        vector2f tc1 = cm.segcoord_to_texc(x + 1, y + 1);
         generate_point_cache(cm, x, y, detail);
-        unsigned nrv = 0;
-        for (vector<cacheentry>::const_iterator cit = pointcache.begin(); cit != pointcache.end(); ++cit)
-            nrv += cit->indices.size();
-        primitives tris(GL_TRIANGLES, nrv, color::white(), *atlanticmap);
-        nrv = 0;
-        for (vector<cacheentry>::const_iterator cit = pointcache.begin(); cit != pointcache.end(); ++cit) {
-            for (vector<unsigned>::const_iterator tit = cit->indices.begin(); tit != cit->indices.end(); ++tit) {
-                const vector2 &v = cit->points[*tit];
-                float ex = v.x / cm.segw_real;
-                float ey = v.y / cm.segw_real;
-                float ax = 1.0f - ex;
-                float ay = 1.0f - ey;
-                vector2f tc(tc0.x * ax + tc1.x * ex, tc0.y * ay + tc1.y * ey);
-                tris.vertices[nrv].x = v.x;
-                tris.vertices[nrv].y = v.y;
-                tris.texcoords[nrv] = tc;
-                ++nrv;
-            }
+        const size_t num_v = cached_mesh.verts.size();
+        if (num_v == 0)
+            return;
+        primitives tris(GL_TRIANGLES, num_v, color::white(), *atlanticmap);
+        for (size_t i = 0; i < num_v; ++i) {
+            tris.vertices[i] = vector3f(cached_mesh.verts[i].x, cached_mesh.verts[i].y, 0);
+            tris.texcoords[i] = cached_mesh.texcoords[i];
         }
         tris.render();
     }
@@ -1070,10 +1078,8 @@ void coastmap::finish_construction() {
 
 void coastmap::draw_as_map(const vector2 &droff, double mapzoom, int detail) const {
     int x, y, w, h;
-    // cout << "mapzoom pix/m = " << mapzoom << " segwreal " << segw_real << "\n";
     w = int(ceil((1024 / mapzoom) / segw_real)) + 2;
-    h = int(ceil((768 / mapzoom) / segw_real)) + 2; // fixme: use 640 and translate map y - 64
-                                                    // cout << " w " << w << " h " << h << " waren's mal.\n";
+    h = int(ceil((768 / mapzoom) / segw_real)) + 2;
     x = int(floor((droff.x - realoffset.x) / segw_real)) - w / 2;
     y = int(floor((droff.y - realoffset.y) / segw_real)) - h / 2;
     if (x < 0) {
@@ -1090,25 +1096,112 @@ void coastmap::draw_as_map(const vector2 &droff, double mapzoom, int detail) con
     if (y + h > int(segsy)) {
         h = int(segsy) - y;
     }
-    // cout<<"draw map   segsx " << segsx << " segsy " << segsy << " x " << x << " y " << y << " w " << w << " h " << h << "\n";
+    if (w <= 0 || h <= 0)
+        return;
 
-    atlanticmap->set_gl_texture();
-    for (int yy = y; yy < y + h; ++yy) {
-        for (int xx = x; xx < x + w; ++xx) {
-            glPushMatrix();
-            glTranslated(xx * segw_real + realoffset.x, yy * segw_real + realoffset.y, 0);
-            coastsegments[yy * segsx + xx].draw_as_map(*this, xx, yy, detail);
-            glPopMatrix();
+    struct map_chunk {
+        std::vector<vector3f> verts;
+        std::vector<vector2f> texcoords;
+    };
+    static std::vector<map_chunk> s_cached_chunks;
+    static int s_cached_x = -1, s_cached_y = -1, s_cached_w = -1, s_cached_h = -1, s_cached_detail = -1;
+
+    bool need_rebuild = (x != s_cached_x || y != s_cached_y || w != s_cached_w || h != s_cached_h || detail != s_cached_detail || s_cached_chunks.empty());
+
+    if (need_rebuild) {
+        s_cached_chunks.clear();
+        s_cached_x = x;
+        s_cached_y = y;
+        s_cached_w = w;
+        s_cached_h = h;
+        s_cached_detail = detail;
+
+        map_chunk current_chunk;
+        current_chunk.verts.reserve(16384);
+        current_chunk.texcoords.reserve(16384);
+
+        auto flush_current = [&]() {
+            if (!current_chunk.verts.empty()) {
+                s_cached_chunks.push_back(std::move(current_chunk));
+                current_chunk.verts.clear();
+                current_chunk.texcoords.clear();
+                current_chunk.verts.reserve(16384);
+                current_chunk.texcoords.reserve(16384);
+            }
+        };
+
+        for (int yy = y; yy < y + h; ++yy) {
+            for (int xx = x; xx < x + w; ++xx) {
+                const coastsegment &seg = coastsegments[yy * segsx + xx];
+                if (seg.type == 0)
+                    continue;
+
+                float base_x = float(xx * segw_real + realoffset.x);
+                float base_y = float(yy * segw_real + realoffset.y);
+
+                if (seg.type == 1) {
+                    if (current_chunk.verts.size() + 6 > 16000)
+                        flush_current();
+
+                    float x0 = base_x;
+                    float x1 = float(base_x + segw_real);
+                    float y0 = base_y;
+                    float y1 = float(base_y + segw_real);
+
+                    vector2f tc0 = segcoord_to_texc(xx, yy);
+                    vector2f tc1 = segcoord_to_texc(xx + 1, yy + 1);
+
+                    // Tri 1: (x0, y0), (x1, y0), (x1, y1)
+                    current_chunk.verts.push_back(vector3f(x0, y0, 0));
+                    current_chunk.texcoords.push_back(vector2f(tc0.x, tc0.y));
+                    current_chunk.verts.push_back(vector3f(x1, y0, 0));
+                    current_chunk.texcoords.push_back(vector2f(tc1.x, tc0.y));
+                    current_chunk.verts.push_back(vector3f(x1, y1, 0));
+                    current_chunk.texcoords.push_back(vector2f(tc1.x, tc1.y));
+
+                    // Tri 2: (x0, y0), (x1, y1), (x0, y1)
+                    current_chunk.verts.push_back(vector3f(x0, y0, 0));
+                    current_chunk.texcoords.push_back(vector2f(tc0.x, tc0.y));
+                    current_chunk.verts.push_back(vector3f(x1, y1, 0));
+                    current_chunk.texcoords.push_back(vector2f(tc1.x, tc1.y));
+                    current_chunk.verts.push_back(vector3f(x0, y1, 0));
+                    current_chunk.texcoords.push_back(vector2f(tc0.x, tc1.y));
+                } else if (seg.type > 1) {
+                    seg.generate_point_cache(*this, xx, yy, detail);
+                    const size_t num_v = seg.cached_mesh.verts.size();
+                    if (num_v == 0)
+                        continue;
+
+                    if (current_chunk.verts.size() + num_v > 16000)
+                        flush_current();
+
+                    for (size_t i = 0; i < num_v; ++i) {
+                        const vector2f &lv = seg.cached_mesh.verts[i];
+                        current_chunk.verts.push_back(vector3f(base_x + lv.x, base_y + lv.y, 0));
+                        current_chunk.texcoords.push_back(seg.cached_mesh.texcoords[i]);
+                    }
+                }
+            }
+        }
+        flush_current();
+    }
+
+    glsl_shader_setup::default_tex->use();
+    glsl_shader_setup::default_tex->set_uniform(glsl_shader_setup::loc_t_color, colorf(1.0f, 1.0f, 1.0f, 1.0f));
+    glsl_shader_setup::default_tex->set_gl_texture(*atlanticmap, glsl_shader_setup::loc_t_tex, 0);
+
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    for (size_t i = 0; i < s_cached_chunks.size(); ++i) {
+        const auto &chunk = s_cached_chunks[i];
+        if (!chunk.verts.empty()) {
+            glVertexPointer(3, GL_FLOAT, sizeof(vector3f), chunk.verts.data());
+            glTexCoordPointer(2, GL_FLOAT, sizeof(vector2f), chunk.texcoords.data());
+            glDrawArrays(GL_TRIANGLES, 0, chunk.verts.size());
         }
     }
-    /*
-            // draw cities, fixme move to coastmap
-            for (list<pair<vector2, string> >::const_iterator it = cities.begin(); it != cities.end(); ++it) {
-                    draw_square_mark(gm, it->first, -offset, color(255, 0, 0));
-                    vector2 pos = (it->first - offset) * mapzoom;
-                    font_arial->print(int(512 + pos.x), int(384 - pos.y), it->second);
-            }
-    */
+
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
 // p is real world coordinate of viewer. modelview matrix is centered around viewer

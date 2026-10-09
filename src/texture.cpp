@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <glu.h>
 
 #include "system.h"
+#include "display_backend.h"
 
 #include "image_loader.h"
 #include "log.h"
@@ -578,11 +579,9 @@ void texture::init(const vector<Uint8> &data, bool makenormalmap, float detailh)
 void texture::load_dds(const std::string &filename, dds_data &target) {
     DDSHEAD header;
     std::ifstream file;
-    int factor;
-    int bufferSize;
 
-    // Open the file
-    file.open(filename.c_str());
+    // Open the file in binary mode
+    file.open(filename.c_str(), std::ios::binary);
 
     if (!file.good())
         throw error("couldn't find, or failed to load " + filename);
@@ -603,46 +602,39 @@ void texture::load_dds(const std::string &filename, dds_data &target) {
         // DXT1's compression ratio is 8:1
         target.format = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
         target.components = 3;
-        factor = 2;
         break;
 
     case MAKEFOURCC('D', 'X', 'T', '3'):
         // DXT3's compression ratio is 4:1
         target.format = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-        factor = 4;
         break;
 
     case MAKEFOURCC('D', 'X', 'T', '5'):
         // DXT5's compression ratio is 4:1
         target.format = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-        factor = 4;
         break;
 
     default:
         throw error("no supported compression type on file: " + filename);
     }
 
-    // How big will the buffer need to be to load all of the pixel data
-    // including mip-maps?
-
-    if (SDL_SwapLE32(header.LinearSize) == 0)
-        throw error("linear size in dds file is 0: " + filename);
-
-    if (header.MipMapCount > 1)
-        bufferSize = SDL_SwapLE32(header.LinearSize) * factor;
-    else
-        bufferSize = SDL_SwapLE32(header.LinearSize);
-
-    target.pixels.resize(bufferSize);
-
-    file.read((char *)&target.pixels[0], bufferSize);
-
-    // Close the file
-    file.close();
-
     target.width = SDL_SwapLE32(header.Width);
     target.height = SDL_SwapLE32(header.Height);
     target.numMipMaps = SDL_SwapLE32(header.MipMapCount);
+    if (target.numMipMaps == 0)
+        target.numMipMaps = 1;
+
+    // Read all pixel data up to EOF
+    file.seekg(0, std::ios::end);
+    std::streamoff file_size = file.tellg();
+    std::streamoff data_size = file_size - (std::streamoff)sizeof(header);
+    if (data_size <= 0)
+        throw error("dds file has no pixel data: " + filename);
+
+    file.seekg(sizeof(header), std::ios::beg);
+    target.pixels.resize(data_size);
+    file.read((char *)&target.pixels[0], data_size);
+    file.close();
 }
 #undef MAKEFOURCC
 
@@ -890,8 +882,9 @@ texture::texture(const std::string &filename, bool dummy, mapping_mode mapping_,
 
         m_size = ((m_width + 3) / 4) * ((m_height + 3) / 4) * block_size;
 
-        glTexImage2D(GL_TEXTURE_2D, i, image_data.format, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-        glCompressedTexSubImage2DARB(GL_TEXTURE_2D, i, 0, 0, m_width, m_height, image_data.format, m_size, &image_data.pixels[m_offset]);
+        if (m_offset + m_size <= (int)image_data.pixels.size()) {
+            glCompressedTexImage2DARB(GL_TEXTURE_2D, i, image_data.format, m_width, m_height, 0, m_size, &image_data.pixels[m_offset]);
+        }
 
         m_offset += m_size;
 
@@ -911,12 +904,14 @@ texture::~texture() {
     mem_freed += sub_mem_used;
     log_debug("Video mem usage " << mem_alloced << " vs " << mem_freed);
 #endif
-    glDeleteTextures(1, &opengl_name);
+    if (opengl_name && display_has_gl_context())
+        glDeleteTextures(1, &opengl_name);
 }
 
 void texture::sub_image(int xoff, int yoff, unsigned w, unsigned h,
                         const std::vector<Uint8> &pixels, int format_) {
     glBindTexture(GL_TEXTURE_2D, opengl_name);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexSubImage2D(GL_TEXTURE_2D, 0 /* mipmap level */,
                     xoff, yoff, w, h, format_, GL_UNSIGNED_BYTE, &pixels[0]);
 }

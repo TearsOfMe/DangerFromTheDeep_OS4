@@ -39,6 +39,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "ship.h"
 #include "system.h"
 #include "texture.h"
+#include "altivec_detect.h"
+#include "altivec_math.h"
 #include "water.h"
 #include <fstream>
 #include <iomanip>
@@ -153,9 +155,11 @@ water::water(double tm, cfg &configuration) : mytime(tm),
                               wavetile_length,
                               wave_tidecycle_time),
                           use_hqsfx(false),
+                          current_fog_color(0.5f, 0.6f, 0.7f),
+                          current_fog_density(0.0005f),
                           vattr_aof_index(0),
                           rerender_new_wtp(true),
-                          geoclipmap_resolution(cmpdtl(configuration.geti("water_detail"))), // should be power of two
+                          geoclipmap_resolution(std::min(cmpdtl(configuration.geti("water_detail")), 32u)), // clamp to 32 max for performance
                           geoclipmap_levels(wave_resolution_shift - 2),
                           patches(1 + (geoclipmap_levels - 1) * 8 * 3 * 3 + 4 /*horizon*/) {
     // generate geoclipmap index data.
@@ -224,6 +228,10 @@ water::water(double tm, cfg &configuration) : mytime(tm),
     ry = std::min(ry, vps);
     rx /= reflection_scale;
     ry /= reflection_scale;
+    // Cap reflection texture resolution to 256x256 max: ocean wave distortion does not require
+    // high detail, and smaller FBO dramatically reduces GPU clear/render time.
+    rx = std::min(rx, 256u);
+    ry = std::min(ry, 256u);
     if (!texture::size_non_power_two()) {
         // choose next bigger power of two
         rx = nextgteqpow2(rx);
@@ -257,6 +265,8 @@ water::water(double tm, cfg &configuration) : mytime(tm),
     loc_w_tex_foamamount = glsl_water->get_uniform_location("tex_foamamount");
     loc_w_foam_transform = glsl_water->get_uniform_location("foam_transform");
     loc_w_reflection_transform = glsl_water->get_uniform_location("reflection_transform");
+    loc_w_fog_color = glsl_water->get_uniform_location("fog_color");
+    loc_w_fog_density = glsl_water->get_uniform_location("fog_density");
     glsl_under_water->use();
     loc_uw_noise_xform_0 = glsl_under_water->get_uniform_location("noise_xform_0");
     loc_uw_noise_xform_1 = glsl_under_water->get_uniform_location("noise_xform_1");
@@ -334,16 +344,30 @@ water::water(double tm, cfg &configuration) : mytime(tm),
       with the clouds.
     */
 
-    // multithreaded construction of water data (faster).
-    // spawn 1 more thread (or 3 on 4-core cpus, but two threads are already fast enough)
-    thread::auto_ptr<worker> myworker;
-    if (true /* construction multithreaded */) {
-        myworker.reset(std::make_unique<worker>(*this, 1, 2).release());
-        myworker->start();
-        construction_threaded(owg, 0, 2);
-        myworker.reset();
+    static std::vector<wavetile_phase> static_wavetile_cache;
+    static unsigned static_cached_phases = 0;
+    static unsigned static_cached_res = 0;
+
+    if (static_cached_phases == wave_phases && static_cached_res == wave_resolution && !static_wavetile_cache.empty()) {
+        dftd_startup_log("water: Using precomputed wavetile cache (%u phases, res=%u)...", wave_phases, wave_resolution);
+        wavetile_data = static_wavetile_cache;
     } else {
-        construction_threaded(owg, 0, 1);
+        dftd_startup_log("water: Precomputing wavetiles (%u phases, res=%u)...", wave_phases, wave_resolution);
+        // multithreaded construction of water data (faster).
+        // spawn 1 more thread (or 3 on 4-core cpus, but two threads are already fast enough)
+        thread::auto_ptr<worker> myworker;
+        if (true /* construction multithreaded */) {
+            myworker.reset(std::make_unique<worker>(*this, 1, 2).release());
+            myworker->start();
+            construction_threaded(owg, 0, 2);
+            myworker.reset();
+        } else {
+            construction_threaded(owg, 0, 1);
+        }
+        compute_amount_of_foam();
+        static_wavetile_cache = wavetile_data;
+        static_cached_phases = wave_phases;
+        static_cached_res = wave_resolution;
     }
     add_loading_screen("water height data computed");
 
@@ -352,10 +376,11 @@ water::water(double tm, cfg &configuration) : mytime(tm),
 #ifdef MEASURE_WAVE_HEIGHTS
     cout << "total minh " << totalmin << " maxh " << totalmax << "\n";
 #endif
-    compute_amount_of_foam();
 
     add_loading_screen("water created");
+    dftd_startup_log("water: Water created, setting initial time...");
     set_time(mytime);
+    dftd_startup_log("water: Constructor finished successfully.");
 }
 
 void water::construction_threaded(ocean_wave_generator<float> &myowg, unsigned phase_start, unsigned phase_add) {
@@ -658,10 +683,12 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
     } else {
         glsl_water->use();
         glsl_water->set_uniform(loc_w_viewpos, viewpos);
+        glsl_water->set_uniform(loc_w_fog_color, current_fog_color);
+        glsl_water->set_uniform(loc_w_fog_density, current_fog_density);
     }
     setup_textures(reflection_projmvmat, transl, under_water);
 
-    bool recompute_vertices = rerender_new_wtp || (rerender_viewpos.square_distance(viewpos) > 0.0001);
+    bool recompute_vertices = rerender_new_wtp || (rerender_viewpos.square_distance(viewpos) > 4.0);
     rerender_new_wtp = false;
     rerender_viewpos = viewpos;
 
@@ -719,32 +746,11 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
     const unsigned nr_vert_attr = 7;
     if (recompute_vertices) {
         unsigned nr_verts_total = geoclipmap_levels * (N + 1) * (N + 1) + 8 /* horizon */;
-        // which data do we need per vertex?
-        // without shaders:
-        // - position (3f)
-        // - texcoord0 (2f)
-        // - texcoord1 (3f)
-        // --- sum: 8f
-        // with shaders (now)
-        // - position (3f)
-        // - normal (3f)
-        // - amount of foam (1f)
-        // --- sum: 7f
-        // with shaders (later)
-        // - position (3f)
-        // - texcoord (2f) (base position x,y - no displacement)
-        // - amount of foam (1f)
-        // --- sum: 6f
-        // No! we still need the normal in the vertex shader, to compute the slope dependent
-        // color and, more important, the reflection texture coordinate distorsion...
-        // so we have 9 floats here, but still not much data...
-        // Some papers state that 32bytes per vertex are ideal (ATI cards), so 8f ideal here...
-        // normal can be fetched as 2f instead of 3f and z recomputed by renormalization
-        // in v-shader...
-        vertices.init_data(nr_verts_total * nr_vert_attr * 4, 0, GL_STREAM_DRAW);
-        float *vertex_data = (float *)vertices.map(GL_WRITE_ONLY);
-        // printf("nr_verts_total %u, memory %u\n", nr_verts_total, nr_verts_total*nr_vert_attr*4);
-        // with N=64 we have 21125 vertices, eating 507000 bytes of memory (shader).
+        unsigned total_floats = nr_verts_total * nr_vert_attr;
+        if (vertex_cache.size() != total_floats) {
+            vertex_cache.resize(total_floats);
+        }
+        float *vertex_data = vertex_cache.data();
         unsigned vertex_data_ptr = 0;
         // whole block takes 0.85ms, so way fast enough (shader).
         // maybe: test if writing to mapped memory is faster than storing and copying data (DMA).
@@ -771,33 +777,31 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
                 unsigned lineidx = (yy & mod) * mult;
                 unsigned xx = xoff;
                 float coordxoff = offset.x;
-                for (unsigned x = 0; x < N + 1; ++x) {
-                    // fixme: adding values of two tiles here could be worth the
-                    // trouble, use same data twice with different scales,
-                    // thus increasing geometrical detail.
-                    // like a 512m tile length with smallest waves of 0.25m
-                    // (4m-512m detail on coarse level, 0.25m-32m on fine level)
-                    // etc., uses view cpu time, but can increase detail
-                    // dramatically... already tried that to add subdetail
-                    // for nearer levels (<0) on earlier water renderings.
-                    // would increase number of rendered levels by 3 or 4, but still
-                    // ok for memory consumption...
-                    unsigned colidx = (xx & mod);
-                    const vector3f &p0 = mml.wavedata[lineidx + colidx];
-                    const vector3f &n0 = mml.normals[lineidx + colidx];
-                    vertex_data[vertex_data_ptr + 0] = p0.x + coordxoff;
-                    vertex_data[vertex_data_ptr + 1] = p0.y + coordyoff;
-                    vertex_data[vertex_data_ptr + 2] = p0.z - viewpos.z;
-                    // vertex_data[vertex_data_ptr+3] = coordxoff;
-                    // vertex_data[vertex_data_ptr+4] = coordyoff;
-                    // vertex_data[vertex_data_ptr+5] = foamamount;
-                    vertex_data[vertex_data_ptr + 3] = n0.x;
-                    vertex_data[vertex_data_ptr + 4] = n0.y;
-                    vertex_data[vertex_data_ptr + 5] = n0.z;
-                    vertex_data[vertex_data_ptr + 6] = mml.amount_of_foam[lineidx + colidx];
-                    vertex_data_ptr += nr_vert_attr;
-                    ++xx;
-                    coordxoff += coordxadd;
+                unsigned start_col = (xx & mod);
+                if (cpu_has_altivec() && (start_col + N <= mod)) {
+                    altivec_generate_geoclipmap_row(
+                        &vertex_data[vertex_data_ptr],
+                        (const float *)&mml.wavedata[lineidx + start_col],
+                        (const float *)&mml.normals[lineidx + start_col],
+                        &mml.amount_of_foam[lineidx + start_col],
+                        coordxoff, coordyoff, float(viewpos.z), coordxadd, N + 1);
+                    vertex_data_ptr += (N + 1) * nr_vert_attr;
+                } else {
+                    for (unsigned x = 0; x < N + 1; ++x) {
+                        unsigned colidx = (xx & mod);
+                        const vector3f &p0 = mml.wavedata[lineidx + colidx];
+                        const vector3f &n0 = mml.normals[lineidx + colidx];
+                        vertex_data[vertex_data_ptr + 0] = p0.x + coordxoff;
+                        vertex_data[vertex_data_ptr + 1] = p0.y + coordyoff;
+                        vertex_data[vertex_data_ptr + 2] = p0.z - viewpos.z;
+                        vertex_data[vertex_data_ptr + 3] = n0.x;
+                        vertex_data[vertex_data_ptr + 4] = n0.y;
+                        vertex_data[vertex_data_ptr + 5] = n0.z;
+                        vertex_data[vertex_data_ptr + 6] = mml.amount_of_foam[lineidx + colidx];
+                        vertex_data_ptr += nr_vert_attr;
+                        ++xx;
+                        coordxoff += coordxadd;
+                    }
                 }
                 ++yy;
                 coordyoff += coordyadd;
@@ -832,8 +836,12 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
             vertex_data[vertex_data_ptr + 6] = 0.0f; // no foam
             vertex_data_ptr += nr_vert_attr;
         }
-        // finish
-        vertices.unmap();
+        // finish: upload from host-cached vertex_cache to GPU VBO (no pipeline stalls)
+        if (vertices.get_map_size() != total_floats * 4) {
+            vertices.init_data(total_floats * 4, vertex_data, GL_DYNAMIC_DRAW);
+        } else {
+            vertices.init_sub_data(0, total_floats * 4, vertex_data);
+        }
         vertices.unbind();
     }
 
@@ -844,12 +852,12 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
 
     // as first, map buffers correctly.
     vertices.bind();
+    glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, nr_vert_attr * 4, (float *)0 + 0);
     glEnableClientState(GL_NORMAL_ARRAY);
     glNormalPointer(GL_FLOAT, nr_vert_attr * 4, (float *)0 + 3);
     glVertexAttribPointer(vattr_aof_index, 1, GL_FLOAT, GL_FALSE, nr_vert_attr * 4, (float *)0 + 6);
     glEnableVertexAttribArray(vattr_aof_index);
-    vertices.unbind();
 
     // innermost level is rendered always
     patches[0]->render();
@@ -896,19 +904,13 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
             const unsigned k = kk[i];
             const unsigned j = jj[i];
             const vector2 offset = vector2(x_base[j], y_base[k]) * L_l - viewpos_mod;
-            // printf("offset ist %f,%f i=%u\n",offset.x,offset.y,i);
-            // printf("x/y size %u %u\n",x_size[j],y_size[k]);
-            //  fixme: enlarge poly by max. x/y displacement of wave coordinates,
-            //  or we see patches disappear sometimes near the screen border...
-            polygon patchpoly(vector3(offset.x, offset.y, -viewpos.z),
-                              vector3(offset.x + x_size[j] * L_l, offset.y, -viewpos.z),
-                              vector3(offset.x + x_size[j] * L_l, offset.y + y_size[k] * L_l, -viewpos.z),
-                              vector3(offset.x, offset.y + y_size[k] * L_l, -viewpos.z));
-            if (!viewfrustum.clip(patchpoly).empty()) {
+            double w_x = x_size[j] * L_l;
+            double w_y = y_size[k] * L_l;
+            vector3 patch_center(offset.x + 0.5 * w_x, offset.y + 0.5 * w_y, -viewpos.z);
+            double patch_radius = 0.5 * sqrt(w_x * w_x + w_y * w_y) + 12.0;
+            if (viewfrustum.sphere_in_frustum(patch_center, patch_radius)) {
                 // render patch
                 patches[1 + (level - 1) * 9 * 8 + patchidx * 8 + i]->render();
-            } else {
-                // printf("culled away patch, level=%i xyoff=%f,%f\n",level,offset.x,offset.y);
             }
         }
     }
@@ -919,8 +921,10 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
     }
 
     // unmap, cleanup
+    // Note: Do not disable GL_VERTEX_ARRAY - the entire engine relies on it being enabled globally!
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableVertexAttribArray(vattr_aof_index);
+    vertices.unbind();
 
     // clean up textures
     cleanup_textures();
@@ -1104,11 +1108,11 @@ void water::compute_amount_of_foam() {
         rndtab[k] = rnd();
 
     // factor to build derivatives correctly
-    const double deriv_fac = wavetile_length_rcp * wave_resolution;
-    const double lambda = 1.0; // lambda has already been multiplied with x/y displacements...
-    const double decay = 4.0 / wave_phases;
-    const double decay_rnd = 0.25 / wave_phases;
-    const double foam_spawn_fac = 0.25; // 0.125;
+    const float deriv_fac = float(wavetile_length_rcp * wave_resolution);
+    const float lambda = 1.0f; // lambda has already been multiplied with x/y displacements...
+    const float decay = 4.0f / wave_phases;
+    const float decay_rnd = 0.25f / wave_phases;
+    const float foam_spawn_fac = 0.25f; // 0.125;
     for (unsigned k = 0; k < wave_phases * 2; ++k) {
         const vector<vector3f> &wd = wavetile_data[k % wave_phases].mipmaps[0].wavedata;
         // compute for each sample how much foam is added (spawned)
@@ -1118,25 +1122,25 @@ void water::compute_amount_of_foam() {
             for (unsigned x = 0; x < wave_resolution; ++x) {
                 unsigned xm1 = (x + wave_resolution - 1) & (wave_resolution - 1);
                 unsigned xp1 = (x + 1) & (wave_resolution - 1);
-                double dispx_dx = (wd[y * wave_resolution + xp1].x - wd[y * wave_resolution + xm1].x) * deriv_fac;
-                double dispx_dy = (wd[yp1 * wave_resolution + x].x - wd[ym1 * wave_resolution + x].x) * deriv_fac;
-                double dispy_dx = (wd[y * wave_resolution + xp1].y - wd[y * wave_resolution + xm1].y) * deriv_fac;
-                double dispy_dy = (wd[yp1 * wave_resolution + x].y - wd[ym1 * wave_resolution + x].y) * deriv_fac;
-                double Jxx = 1.0 + lambda * dispx_dx;
-                double Jyy = 1.0 + lambda * dispy_dy;
-                double Jxy = lambda * dispy_dx;
-                double Jyx = lambda * dispx_dy;
-                double J = Jxx * Jyy - Jxy * Jyx;
-                // printf("x,y=%u,%u, Jxx,yy=%f,%f Jxy,yx=%f,%f J=%f\n",
-                //        x,y, Jxx,Jyy, Jxy,Jyx, J);
-                // double foam_add = (J < 0.3) ? ((J < -1.0) ? 1.0 : (J - 0.3)/-1.3) : 0.0;
-                double foam_add = (J < 0.0) ? ((J < -1.0) ? 1.0 : -J) : 0.0;
-                aof[y * wave_resolution + x] += foam_add * foam_spawn_fac;
-                // spawn foam also on neighbouring fields
-                aof[ym1 * wave_resolution + x] += foam_add * foam_spawn_fac * 0.5;
-                aof[yp1 * wave_resolution + x] += foam_add * foam_spawn_fac * 0.5;
-                aof[y * wave_resolution + xm1] += foam_add * foam_spawn_fac * 0.5;
-                aof[y * wave_resolution + xp1] += foam_add * foam_spawn_fac * 0.5;
+                float dispx_dx = (wd[y * wave_resolution + xp1].x - wd[y * wave_resolution + xm1].x) * deriv_fac;
+                float dispx_dy = (wd[yp1 * wave_resolution + x].x - wd[ym1 * wave_resolution + x].x) * deriv_fac;
+                float dispy_dx = (wd[y * wave_resolution + xp1].y - wd[y * wave_resolution + xm1].y) * deriv_fac;
+                float dispy_dy = (wd[yp1 * wave_resolution + x].y - wd[ym1 * wave_resolution + x].y) * deriv_fac;
+                float Jxx = 1.0f + lambda * dispx_dx;
+                float Jyy = 1.0f + lambda * dispy_dy;
+                float Jxy = lambda * dispy_dx;
+                float Jyx = lambda * dispx_dy;
+                float J = Jxx * Jyy - Jxy * Jyx;
+                float foam_add = (J < 0.0f) ? ((J < -1.0f) ? 1.0f : -J) : 0.0f;
+                if (foam_add > 0.0f) {
+                    float f_add = foam_add * foam_spawn_fac;
+                    aof[y * wave_resolution + x] += f_add;
+                    float f_half = f_add * 0.5f;
+                    aof[ym1 * wave_resolution + x] += f_half;
+                    aof[yp1 * wave_resolution + x] += f_half;
+                    aof[y * wave_resolution + xm1] += f_half;
+                    aof[y * wave_resolution + xp1] += f_half;
+                }
             }
         }
 
@@ -1144,7 +1148,8 @@ void water::compute_amount_of_foam() {
         unsigned ptr = 0;
         for (unsigned y = 0; y < wave_resolution; ++y) {
             for (unsigned x = 0; x < wave_resolution; ++x) {
-                aof[ptr] = std::max(std::min(aof[ptr], 1.0f) - (decay + decay_rnd * rndtab[(3 * x + 5 * y) % 37]), 0.0);
+                float val = std::min(aof[ptr], 1.0f) - (decay + decay_rnd * rndtab[(3 * x + 5 * y) % 37]);
+                aof[ptr] = std::max(val, 0.0f);
                 ++ptr;
             }
         }
@@ -1157,13 +1162,14 @@ void water::compute_amount_of_foam() {
                 unsigned res = wave_resolution >> j;
                 const wavetile_phase::mipmap_level &mm1 = wavetile_data[k - wave_phases].mipmaps[j - 1];
                 wavetile_phase::mipmap_level &mm2 = wavetile_data[k - wave_phases].mipmaps[j];
-                mm2.amount_of_foam.reserve(res * res);
+                mm2.amount_of_foam.resize(res * res);
                 unsigned ptr = 0;
+                unsigned out_idx = 0;
                 for (unsigned y = 0; y < res; ++y) {
                     for (unsigned x = 0; x < res; ++x) {
                         float sum = mm1.amount_of_foam[ptr] + mm1.amount_of_foam[ptr + 1] + mm1.amount_of_foam[ptr + 2 * res] + mm1.amount_of_foam[ptr + 1 + 2 * res];
                         // fixme: maybe let foam vanish on upper mipmap levels
-                        mm2.amount_of_foam.push_back(sum * 0.25f);
+                        mm2.amount_of_foam[out_idx++] = sum * 0.25f;
                         ptr += 2;
                     }
                     ptr += 2 * res;
@@ -1203,7 +1209,7 @@ void water::generate_subdetail_texture() {
         // when using relief mapping - heights are not downsampled...?!
         water_bumpmap = std::make_unique<texture>(curr_wtp->mipmaps[0].normals_tex,
                                                   wave_resolution, wave_resolution,
-                                                  GL_RGB, texture::LINEAR_MIPMAP_LINEAR,
+                                                  GL_RGB, texture::LINEAR,
                                                   texture::REPEAT);
     }
 }
@@ -1257,11 +1263,9 @@ void water::set_refraction_color(const colorf &light_color) {
     // good weather
     //	color wavetop = color(color(10, 10, 10), color(18, 93, 77), light_brightness);
     //	color wavebottom = color(color(10, 10, 20), color(18, 73, 107), light_brightness);
-    // rather bad weather
-    // fixme: multiply with light color here, not only light brightness.
-    // dim yellow light should result in dim yellow-green upwelling color, not dim green.
-    colorf wavetop = light_color.lerp(colorf(color(0, 0, 0)), colorf(color(49, 83, 94)));
-    colorf wavebottom = light_color.lerp(colorf(color(0, 0, 0)), colorf(color(29, 56, 91)));
+    // Realistic North Atlantic ocean colors: deep marine blue depths, natural ocean surface
+    colorf wavetop = light_color.lerp(colorf(color(0, 0, 0)), colorf(color(35, 95, 115)));
+    colorf wavebottom = light_color.lerp(colorf(color(0, 0, 0)), colorf(color(18, 55, 85)));
 
     float wt[3], wb[3];
     wavetop.store_rgb(wt);
@@ -1290,18 +1294,15 @@ void water::set_refraction_color(const colorf &light_color) {
                                                 texture::LINEAR /*_MIPMAP_LINEAR*/, texture::CLAMP);
 }
 
-void water::refltex_render_bind() const {
+void water::refltex_render_bind(const colorf &clearcol) const {
     if (reflectiontex_fbo.get()) {
         reflectiontex_fbo->bind();
     } else {
         glViewport(0, 0, reflectiontex->get_width(), reflectiontex->get_height());
     }
 
-    // clear depth buffer (not needed for sky drawing, but this color can be seen as mirror
-    // image when looking from below the water surface (scope) fixme: clear color with upwelling color!)
-    glClearColor(0, 1.0f / 16, 1.0f / 8, 0);
-    // fixme: clears whole viewport, which kills display with torpedo camera view
-    // when not using FBOs...
+    // Clear to horizon sky color so reflection texture edges blend into the sky seamlessly
+    glClearColor(clearcol.r, clearcol.g, clearcol.b, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -1331,7 +1332,7 @@ water::wavetile_phase::mipmap_level::mipmap_level(const std::vector<vector3f> &w
         }
         ptr += 2 * resolution;
     }
-    compute_normals();
+    compute_normals(false);
     debug_dump();
 }
 
@@ -1348,25 +1349,19 @@ water::wavetile_phase::mipmap_level::mipmap_level(const std::vector<vector2f> &d
         wavedata[i].y = displacements[i].y;
         wavedata[i].z = heights[i];
     }
-    compute_normals();
+    compute_normals(true);
     debug_dump();
 }
 
-void water::wavetile_phase::mipmap_level::compute_normals() {
-    // Compute normals matching the tesselation!
-    // if we render TRIANGLE_STRIPs, we have a determined tesselation and thus can
-    // compute correct normals.
-    // compute normals for each face (triangles!) and then per vertex.
-    // Triangle strip scheme:
-    // v0 --- v2 --- v4
-    // |    / |    / |
-    // |   /  |   /  |
-    // |  /   |  /   |
-    // v1 --- v3 --- v5
-    // v1,v3,v5 are from lower line (smaller y).
-    // Each vertex has six adjacent triangles.
-    vector<vector3f> facenormals;
-    facenormals.reserve(resolution * resolution * 2);
+void water::wavetile_phase::mipmap_level::compute_normals(bool generate_tex) {
+    // Compute face normals (unnormalized for natural area weighting, avoiding square roots)
+    static thread_local vector<vector3f> facenormals;
+    const unsigned fn_count = resolution * resolution * 2;
+    if (facenormals.size() < fn_count) {
+        facenormals.resize(fn_count);
+    }
+    unsigned fn_idx = 0;
+    const float sdist = float(sampledist);
     for (unsigned y = 0; y < resolution; ++y) {
         unsigned y1 = y * resolution;
         unsigned y2 = ((y + 1) & (resolution - 1)) * resolution;
@@ -1376,55 +1371,70 @@ void water::wavetile_phase::mipmap_level::compute_normals() {
             const vector3f &p1 = wavedata[y1 + x2];
             const vector3f &p2 = wavedata[y2 + x];
             const vector3f &p3 = wavedata[y2 + x2];
-            vector3f p01 = p1 - p0;
-            vector3f p02 = p2 - p0;
-            vector3f p03 = p3 - p0;
-            p01.x += sampledist;
-            p03.x += sampledist;
-            p02.y += sampledist;
-            p03.y += sampledist;
-            facenormals.push_back(p03.cross(p02).normal());
-            facenormals.push_back(p01.cross(p03).normal());
+            float p01_x = (p1.x - p0.x) + sdist;
+            float p01_y = p1.y - p0.y;
+            float p01_z = p1.z - p0.z;
+
+            float p02_x = p2.x - p0.x;
+            float p02_y = (p2.y - p0.y) + sdist;
+            float p02_z = p2.z - p0.z;
+
+            float p03_x = (p3.x - p0.x) + sdist;
+            float p03_y = (p3.y - p0.y) + sdist;
+            float p03_z = p3.z - p0.z;
+
+            facenormals[fn_idx++] = vector3f(
+                p03_y * p02_z - p03_z * p02_y,
+                p03_z * p02_x - p03_x * p02_z,
+                p03_x * p02_y - p03_y * p02_x
+            );
+            facenormals[fn_idx++] = vector3f(
+                p01_y * p03_z - p01_z * p03_y,
+                p01_z * p03_x - p01_x * p03_z,
+                p01_x * p03_y - p01_y * p03_x
+            );
         }
     }
 
     // Now compute vertex normals from face normals.
-    // Every vertex has six adjacent faces, in ccw order:
-    // face0 = (x  ,y  )
-    // face1 = (x-1,y  )
-    // face2 = (x-2,y-1)
-    // face3 = (x-1,y-1)
-    // face4 = (x  ,y-1)
-    // face5 = (x+1,y  )
-    normals.reserve(1 << (2 * resolution_shift));
-    for (unsigned y = 0; y < resolution; ++y) {
-        unsigned y1 = y * resolution;
-        unsigned y2 = ((y + resolution - 1) & (resolution - 1)) * resolution;
-        for (unsigned x = 0; x < resolution; ++x) {
-            unsigned x1 = (x + resolution - 1) & (resolution - 1);
-            const vector3f &f0 = facenormals[2 * (y1 + x)];
-            const vector3f &f1 = facenormals[2 * (y1 + x1) + 1];
-            const vector3f &f2 = facenormals[2 * (y2 + x1)];
-            const vector3f &f3 = facenormals[2 * (y2 + x1) + 1];
-            const vector3f &f4 = facenormals[2 * (y2 + x)];
-            const vector3f &f5 = facenormals[2 * (y1 + x) + 1];
-            normals.push_back((f0 + f1 + f2 + f3 + f4 + f5).normal());
+    normals.resize(1 << (2 * resolution_shift));
+    if (cpu_has_altivec()) {
+        altivec_compute_vertex_normals(
+            (float *)normals.data(),
+            (const float *)facenormals.data(),
+            resolution);
+    } else {
+        for (unsigned y = 0; y < resolution; ++y) {
+            unsigned y1 = y * resolution;
+            unsigned y2 = ((y + resolution - 1) & (resolution - 1)) * resolution;
+            for (unsigned x = 0; x < resolution; ++x) {
+                unsigned x1 = (x + resolution - 1) & (resolution - 1);
+                const vector3f &f0 = facenormals[2 * (y1 + x)];
+                const vector3f &f1 = facenormals[2 * (y1 + x1) + 1];
+                const vector3f &f2 = facenormals[2 * (y2 + x1)];
+                const vector3f &f3 = facenormals[2 * (y2 + x1) + 1];
+                const vector3f &f4 = facenormals[2 * (y2 + x)];
+                const vector3f &f5 = facenormals[2 * (y1 + x) + 1];
+                float nx = f0.x + f1.x + f2.x + f3.x + f4.x + f5.x;
+                float ny = f0.y + f1.y + f2.y + f3.y + f4.y + f5.y;
+                float nz = f0.z + f1.z + f2.z + f3.z + f4.z + f5.z;
+                float lsq = nx * nx + ny * ny + nz * nz;
+                float inv_len = (lsq > 0.0f) ? (1.0f / sqrtf(lsq)) : 0.0f;
+                normals[y1 + x] = vector3f(nx * inv_len, ny * inv_len, nz * inv_len);
+            }
         }
     }
 
-    // compute texture data
-    // fixme: for higher levels the computed data is not used, as mipmaps are generated
-    // by glu. however this data should be much better!
-    // but we can't feed it to texture class yet
-    normals_tex.resize(resolution * resolution * 3); // fixme: for now use RGB
-    unsigned ptr = 0;
-    for (unsigned y = 0; y < resolution; ++y) {
-        for (unsigned x = 0; x < resolution; ++x) {
-            const vector3f &v = normals[ptr];
-            normals_tex[3 * ptr + 0] = Uint8(v.x * 127 + 128);
-            normals_tex[3 * ptr + 1] = Uint8(v.y * 127 + 128);
-            normals_tex[3 * ptr + 2] = Uint8(v.z * 127 + 128);
-            ++ptr;
+    // compute texture data only for base mipmap level (higher levels never use normals_tex)
+    if (generate_tex) {
+        normals_tex.resize(resolution * resolution * 3);
+        unsigned ptr = 0;
+        for (unsigned i = 0; i < resolution * resolution; ++i) {
+            const vector3f &v = normals[i];
+            normals_tex[ptr + 0] = Uint8(v.x * 127 + 128);
+            normals_tex[ptr + 1] = Uint8(v.y * 127 + 128);
+            normals_tex[ptr + 2] = Uint8(v.z * 127 + 128);
+            ptr += 3;
         }
     }
 }

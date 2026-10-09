@@ -293,7 +293,7 @@ void torpedo::save(xml_elem &parent) const {
     rudder.save(ed);
 }
 
-void torpedo::simulate(double delta_time) {
+bool torpedo::simulate(double delta_time) {
     /*
     log_debug("torpedo  " << this << " heading " << heading.value() << " should head to " << head_to.value() << " turn speed " << turn_velocity << "\n"
               << " position " << position << " orientation " << orientation << " run_length " << run_length << "\n"
@@ -301,7 +301,8 @@ void torpedo::simulate(double delta_time) {
               << " delta t "<< delta_time << "linear_mom " << linear_momentum);
     */
     redetect_time = 1.0;
-    ship::simulate(delta_time);
+    if (!ship::simulate(delta_time))
+        return false;
 
     depth_steering_logic();
     dive_planes.simulate(delta_time);
@@ -313,7 +314,7 @@ void torpedo::simulate(double delta_time) {
         // it doesn't sink to sea floor when doing this
         // alive_stat = inactive;
         kill();
-        return;
+        return false;
     }
 
     // Torpedo starts to search for a target when the minimum save
@@ -383,9 +384,12 @@ void torpedo::simulate(double delta_time) {
     // check for collisions with other subs or ships
     if (run_length > 10) { // avoid collision with parent after initial creation
         bool runlengthfailure = (run_length < arming_distance);
-        if (gm.check_torpedo_hit(this, runlengthfailure))
+        if (gm.check_torpedo_hit(this, runlengthfailure)) {
             kill();
+            return false;
+        }
     }
+    return true;
 }
 
 void torpedo::compute_force_and_torque(vector3 &F, vector3 &T) const {
@@ -504,7 +508,7 @@ double torpedo::get_range() const {
     case STEAM:
         return range[mysetup.torpspeed];
     case ELECTRIC: {
-        // varies between 15° and 30°
+        // varies between 15Â° and 30Â°
         double s = myclamp((temperature - 15) / 15, 0.0, 1.0);
         return myinterpolate(range[NORMAL], range[PREHEATED], s);
     }
@@ -519,7 +523,7 @@ double torpedo::get_torp_speed() const {
     case STEAM:
         return speed[mysetup.torpspeed];
     case ELECTRIC: {
-        // varies between 15° and 30°
+        // varies between 15Â° and 30Â°
         double s = myclamp((temperature - 15) / 15, 0.0, 1.0);
         return myinterpolate(speed[NORMAL], speed[PREHEATED], s);
     }

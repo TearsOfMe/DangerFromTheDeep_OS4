@@ -179,6 +179,13 @@ std::string xml_elem::child_text() const {
     return ntext->Value();
 }
 
+const char *xml_elem::child_text_cstr() const {
+    TiXmlNode *ntext = elem->FirstChild();
+    if (!ntext)
+        throw xml_error(std::string("child of ") + get_name() + std::string(" is no text node"), doc_name());
+    return ntext->Value();
+}
+
 xml_elem::iterator xml_elem::iterate(const std::string &childname) const {
     return iterator(*this, elem->FirstChildElement(childname), true);
 }
@@ -234,6 +241,10 @@ xml_elem xml_doc::child(const std::string &name) {
     if (!e)
         throw xml_elem_error(name, doc->Value());
     return xml_elem(e);
+}
+
+bool xml_doc::has_child(const std::string &name) const {
+    return doc->FirstChildElement(name) != 0;
 }
 
 xml_elem xml_doc::add_child(const std::string &name) {

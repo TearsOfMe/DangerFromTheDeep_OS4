@@ -284,7 +284,7 @@ class ship : public sea_object {
 
     virtual shipclass get_class() const { return myclass; }
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
 
     virtual void sink();
 

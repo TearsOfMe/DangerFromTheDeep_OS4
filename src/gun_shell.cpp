@@ -251,11 +251,13 @@ void gun_shell::check_collision_voxel(ship &s, const vector3f &oldrelpos, const 
     }
 }
 
-void gun_shell::simulate(double delta_time) {
+bool gun_shell::simulate(double delta_time) {
+    if (!sea_object::simulate(delta_time))
+        return false;
     check_collision();
     oldpos = position;
     // log_debug("GS: position="<<position);
-    sea_object::simulate(delta_time);
+    return is_reference_ok();
 }
 
 void gun_shell::display(const texture *caustic_map) const {

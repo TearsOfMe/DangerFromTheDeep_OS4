@@ -100,21 +100,36 @@ void sub_recogmanual_display::enter(bool is_day) {
 
     std::list<string> ship_ids = data_file_handler::instance().get_ship_list();
     for (list<string>::iterator it = ship_ids.begin(); it != ship_ids.end(); it++) {
+        string sil_path = data_file_handler::instance().get_path(*it) + (*it) + "_silhouette.png";
+        FILE *fsil = fopen(sil_path.c_str(), "rb");
+        if (!fsil)
+            continue; // Silhouette does not exist, skip without exception
+        fclose(fsil);
+
+        string xml_path = data_file_handler::instance().get_filename(*it);
+        FILE *fxml = fopen(xml_path.c_str(), "rb");
+        if (!fxml)
+            continue;
+        fclose(fxml);
 
         try {
-            std::unique_ptr<image> img(new image(data_file_handler::instance().get_path(*it) + (*it) + "_silhouette.png"));
-            silhouettes.push_back(std::move(img));
-
-            xml_doc doc(data_file_handler::instance().get_filename(*it));
+            xml_doc doc(xml_path);
             doc.load();
-            xml_elem elem = doc.child("dftd-ship"); // will this get destroyed on leaving function?
+            if (!doc.has_child("dftd-ship"))
+                continue;
+            xml_elem elem = doc.child("dftd-ship");
+            if (!elem.has_child("shipmanual"))
+                continue;
             elem = elem.child("shipmanual");
+
+            std::unique_ptr<image> img(new image(sil_path));
+            silhouettes.push_back(std::move(img));
             displacements.push_back(std::make_unique<string>(elem.attr("displacement")));
             lengths.push_back(std::make_unique<string>(elem.attr("length")));
             classes.push_back(std::make_unique<string>(elem.attr("class")));
             weapons.push_back(std::make_unique<string>(elem.attr("weapons")));
             countries.push_back(std::make_unique<string>(elem.attr("countries")));
-        } catch (exception &e) { // fixme: remove the try..catch when all silhouette files are on place
+        } catch (...) {
         }
     }
 }

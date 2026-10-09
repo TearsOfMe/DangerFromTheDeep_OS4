@@ -116,15 +116,41 @@ endif()
 
 #------------------------------------
 
-set(OpenGL_GL_PREFERENCE "LEGACY")
-find_package(OpenGL REQUIRED)
-include_directories(${OPENGL_INCLUDE_DIR})
-if(OPENGL_INCLUDE_DIR)
-  include_directories("${OPENGL_INCLUDE_DIR}/GL")
+# Mesa / GL4ES 3D stack for AmigaOS 4
+option(USE_MESA "Build with native Mesa 3D instead of GL4ES" OFF)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+	if(USE_MESA)
+		# Native Mesa 26.1.5 stack for AmigaOS 4
+		include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/mesa/SDK/local/common/include")
+		include_directories(BEFORE "${CMAKE_SOURCE_DIR}/third_party/mesa/SDK/include/include_h")
+		set(OPENGL_LIBRARIES "${CMAKE_SOURCE_DIR}/third_party/mesa/SDK/local/common/lib/libGL.a -lGLU_gl4es")
+		set(OPENGL_LIBRARY "${CMAKE_SOURCE_DIR}/third_party/mesa/SDK/local/common/lib/libGL.a -lGLU_gl4es")
+		set(SDL2_LIBRARY "${CMAKE_SOURCE_DIR}/third_party/mesa/libSDL2_mesa.a")
+		set(SDL_LIBS ${CMAKE_SOURCE_DIR}/third_party/mesa/libSDL2_mesa.a ${SDL2_MIXER_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+		add_definitions(-DDFTD_USE_MESA=1)
+		message(STATUS "AmigaOS 4: Using native Mesa 26.1.5 3D stack (-lSDL2_mesa -lGL -lGLU_gl4es)")
+	else()
+		# GL4ES 3D stack for AmigaOS 4 (Warp3D Nova / ogles2 backend)
+		include_directories(BEFORE "${CMAKE_SOURCE_DIR}/cmake/gl4es_include")
+		include_directories(BEFORE "/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES")
+		set(OPENGL_LIBRARIES "-lgl4es -lGLU_gl4es")
+		set(OPENGL_LIBRARY "-lgl4es -lGLU_gl4es")
+		set(SDL2_LIBRARY "-lSDL2_gl4es")
+		set(SDL_LIBS -lSDL2_gl4es ${SDL2_MIXER_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+		message(STATUS "AmigaOS 4: Using Mesa/GL4ES 3D stack (-lSDL2_gl4es -lgl4es -lGLU_gl4es)")
+	endif()
 else()
-  include_directories("/usr/include/GL")
+	set(OpenGL_GL_PREFERENCE "LEGACY")
+	find_package(OpenGL REQUIRED)
+	include_directories(${OPENGL_INCLUDE_DIR})
+	if(OPENGL_INCLUDE_DIR)
+	  include_directories("${OPENGL_INCLUDE_DIR}/GL")
+	else()
+	  include_directories("/usr/include/GL")
+	endif()
+	message(STATUS "OPENGL_LIBRARY:         ${OPENGL_LIBRARIES}")
 endif()
-message(STATUS "OPENGL_LIBRARY:         ${OPENGL_LIBRARIES}")
 
 #------------------------------------
 

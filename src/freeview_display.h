@@ -73,7 +73,8 @@ class freeview_display : public user_display {
                               const std::vector<sea_object *> &objects,
                               const colorf &light_color,
                               const bool underwater,
-                              bool mirrorclip) const;
+                              bool mirrorclip,
+                              const class frustum *vf = nullptr) const;
 
     // draw the whole view
     virtual void draw_view(class game &gm, const vector3 &viewpos) const;
@@ -88,5 +89,7 @@ class freeview_display : public user_display {
     virtual void display(class game &gm) const;
     virtual void process_input(class game &gm, const game_event &event);
 };
+
+void freeview_get_and_reset_timings(float &refl_ms, float &foam_ms, float &water_ms, float &terr_ms);
 
 #endif

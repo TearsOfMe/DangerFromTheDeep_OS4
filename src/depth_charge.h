@@ -50,7 +50,7 @@ class depth_charge : public sea_object {
     virtual void load(const xml_elem &parent);
     virtual void save(xml_elem &parent) const;
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
     void compute_force_and_torque(vector3 &F, vector3 &T) const;
 };
 

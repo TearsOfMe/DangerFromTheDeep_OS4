@@ -31,6 +31,8 @@
 #include "vector2.h"
 #include "vector3.h"
 #include "xml.h"
+#include "filehelper.h"
+#include "log.h"
 #include <SDL.h>
 #include <fstream>
 #include <iostream>
@@ -110,28 +112,44 @@ terrain<T>::terrain(const std::string &header_file, const std::string &data_dir,
     elem = root.child("sample_spacing");
     sample_spacing = elem.attrf("value");
 
-    base_texture = std::make_unique<texture>(get_texture_dir() += "terrain_base.png", texture::LINEAR, texture::REPEAT);
-    noise_texture = std::make_unique<texture>(get_texture_dir() += "terrain_noise.dds", true, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    sand_texture = std::make_unique<texture>(get_texture_dir() += "terrain_sand.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    mud_texture = std::make_unique<texture>(get_texture_dir() += "terrain_mud.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    forest_texture = std::make_unique<texture>(get_texture_dir() += "terrain_forest.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    grass_texture = std::make_unique<texture>(get_texture_dir() += "terrain_grass.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    rock_texture = std::make_unique<texture>(get_texture_dir() += "terrain_rock.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    snow_texture = std::make_unique<texture>(get_texture_dir() += "terrain_snow.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    forest_brdf_texture = std::make_unique<texture>(get_texture_dir() += "terrain_forest_brdf.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
-    rock_brdf_texture = std::make_unique<texture>(get_texture_dir() += "terrain_rock_brdf.dds", false, texture::LINEAR_MIPMAP_LINEAR, texture::REPEAT);
+    auto load_terrain_tex = [](const std::string &base, texture::mapping_mode mm = texture::LINEAR_MIPMAP_LINEAR) {
+        std::string png = get_texture_dir() + base + ".png";
+        if (is_file(png)) {
+            dftd_startup_log("Loading terrain texture (PNG): %s", png.c_str());
+            return std::make_unique<texture>(png, mm, texture::REPEAT);
+        }
+        std::string dds = get_texture_dir() + base + ".dds";
+        dftd_startup_log("Loading terrain texture (DDS): %s", dds.c_str());
+        return std::make_unique<texture>(dds, false, mm, texture::REPEAT);
+    };
+
+    dftd_startup_log("Loading terrain textures...");
+    base_texture = std::make_unique<texture>(get_texture_dir() + "terrain_base.png", texture::LINEAR, texture::REPEAT);
+    noise_texture = load_terrain_tex("terrain_noise");
+    sand_texture = load_terrain_tex("terrain_sand");
+    mud_texture = load_terrain_tex("terrain_mud");
+    forest_texture = load_terrain_tex("terrain_forest");
+    grass_texture = load_terrain_tex("terrain_grass");
+    rock_texture = load_terrain_tex("terrain_rock");
+    snow_texture = load_terrain_tex("terrain_snow");
+    forest_brdf_texture = load_terrain_tex("terrain_forest_brdf");
+    rock_brdf_texture = load_terrain_tex("terrain_rock_brdf");
+    dftd_startup_log("Terrain textures loaded successfully.");
 
     frac = std::make_unique<fractal_noise>(noise_h, noise_lac, num_levels + 1, noise_off, noise_gain);
 
     tex_stretch_factor = cfg::instance().getf("terrain_texture_resolution") / 100.0;
 
+    dftd_startup_log("Initializing terrain tile cache (dir=%s)...", data_dir.c_str());
     m_tile_cache = tile_cache<T>(data_dir, bounds.y, bounds.x, tile_size, 0, 300000);
 
+    dftd_startup_log("Generating terrain noise map (256x256)...");
     noise_map.resize(vector2i(256, 256));
 
     for (int y = 0; y < noise_map.size().y; y++)
         for (int x = 0; x < noise_map.size().x; x++)
             noise_map.at(x, y) = gauss_noise();
+    dftd_startup_log("Terrain initialization completed.");
 }
 
 template <class T>
@@ -146,9 +164,14 @@ void terrain<T>::compute_heights(int detail, const vector2i &coord_bl, const vec
 
     for (int y = 0; y < coord_sz.y; ++y) {
         float *dest2 = dest;
-        for (int x = 0; x < coord_sz.x; ++x) {
-            *dest2 = v[vector2i(x, y)];
-            dest2 += stride;
+        if (stride == 1) {
+            const float *src = &v.fast_at(0, y);
+            std::copy(src, src + coord_sz.x, dest2);
+        } else {
+            for (int x = 0; x < coord_sz.x; ++x) {
+                *dest2 = v.fast_at(x, y);
+                dest2 += stride;
+            }
         }
         dest += line_stride;
     }
@@ -157,7 +180,6 @@ void terrain<T>::compute_heights(int detail, const vector2i &coord_bl, const vec
 template <class T>
 bivector<float> terrain<T>::generate_patch(int detail, const vector2i &coord_bl, const vector2i &coord_sz) {
     bivector<float> patch;
-    double noise, scale = noise_scale / (1.0 / (float)detail);
 
     if (detail < (num_levels - 1)) {
         // upsample from the next coarser level
@@ -175,7 +197,7 @@ bivector<float> terrain<T>::generate_patch(int detail, const vector2i &coord_bl,
 
         for (int y = 0; y < coord_sz.y; y++) {
             for (int x = 0; x < coord_sz.x; x++) {
-                vector2f coord = vector2f(((float)((coord_bl.x + x) << detail)) * sample_spacing, ((float)((coord_bl.y + y) << detail)) * sample_spacing);
+                vector2f coord = vector2f(((float)((coord_bl.x + x) * (1 << detail))) * sample_spacing, ((float)((coord_bl.y + y) * (1 << detail))) * sample_spacing);
                 vector2f coord_geo = transform_real_to_geo(coord);
 
                 coord_geo *= (float)resolution;
@@ -185,15 +207,18 @@ bivector<float> terrain<T>::generate_patch(int detail, const vector2i &coord_bl,
         }
 
     } else
-        throw("terrain::generate_patch(): invalid detail level requested.");
+        throw std::runtime_error("terrain::generate_patch(): invalid detail level requested.");
 
-    if (detail == -1)
+    if (detail <= 0)
         return patch;
+
+    double noise = 0.0;
+    double scale = noise_scale * (float)detail;
 
     for (int y = 0; y < coord_sz.y; ++y) {
         for (int x = 0; x < coord_sz.x; ++x) {
             vector2l coord(coord_bl.x + x, coord_bl.y + y);
-            vector3 point((coord.x << (detail + 1)) * noise_coord_factor, (coord.y << (detail + 1)) * noise_coord_factor, patch.at(x, y) * noise_coord_factor);
+            vector3 point((coord.x * (1 << (detail + 1))) * noise_coord_factor, (coord.y * (1 << (detail + 1))) * noise_coord_factor, patch.at(x, y) * noise_coord_factor);
 
             noise = frac->get_value_hybrid(vector3f(point), num_levels - detail) * scale;
             if ((patch.at(x, y) <= 0.0) && (noise > 0.0))

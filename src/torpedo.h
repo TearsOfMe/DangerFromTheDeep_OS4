@@ -191,7 +191,7 @@ class torpedo : public ship {
     virtual void load(const xml_elem &parent);
     virtual void save(xml_elem &parent) const;
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
 
     // sets speed to initial speed, sets position
     virtual void launch(const vector3 &launchpos, angle parenthdg);

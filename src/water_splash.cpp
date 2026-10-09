@@ -77,12 +77,16 @@ water_splash::water_splash(game &gm_, const vector3 &pos, double risetime_, doub
     balpha = std::make_unique<bspline>(3, p);
 }
 
-void water_splash::simulate(double delta_time) {
-    sea_object::simulate(delta_time);
+bool water_splash::simulate(double delta_time) {
+    if (!sea_object::simulate(delta_time))
+        return false;
 
     resttime -= delta_time;
-    if (resttime <= -0.5)
+    if (resttime <= -0.5) {
         kill();
+        return false;
+    }
+    return true;
 }
 
 void water_splash::display(const texture *caustic_map) const {

@@ -341,6 +341,8 @@ class model {
         void display_mirror_clip() const;
         void compute_bounds(vector3f &min, vector3f &max, const matrix4f &transmat) const;
         matrix4f get_transformation() const;
+        mesh *find_first_mesh();
+        const mesh *find_first_mesh() const;
     };
 
     // store that for debugging purposes.

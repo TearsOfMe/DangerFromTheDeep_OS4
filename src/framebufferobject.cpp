@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "log.h"
 #include "oglext/OglExt.h"
 #include "system.h"
+#include "display_backend.h"
 #include "texture.h"
 #include <stdexcept>
 
@@ -104,10 +105,14 @@ framebufferobject::~framebufferobject() {
 }
 
 void framebufferobject::destroy() {
-    if (id)
-        glDeleteFramebuffersEXT(1, &id);
-    if (depthbuf_id)
-        glDeleteRenderbuffersEXT(1, &depthbuf_id);
+    if (display_has_gl_context()) {
+        if (id)
+            glDeleteFramebuffersEXT(1, &id);
+        if (depthbuf_id)
+            glDeleteRenderbuffersEXT(1, &depthbuf_id);
+    }
+    id = 0;
+    depthbuf_id = 0;
 }
 
 void framebufferobject::bind() const {

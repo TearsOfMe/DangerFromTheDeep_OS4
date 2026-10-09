@@ -183,6 +183,10 @@ system::system(const parameters &params_) : params(params_),
                           extension_supported("GL_ARB_shader_objects") &&
                           /* sys().extension_supported("GL_ARB_shading_language_100") && */
                           extension_supported("GL_ARB_vertex_shader");
+#ifdef __amigaos4__
+    // GL4ES provides OpenGL 2.1 shaders via ogles2.library
+    glsl_supported = true;
+#endif
     if (!glsl_supported) {
         throw std::runtime_error("GLSL shaders are not supported!");
     }
@@ -232,7 +236,9 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
             res_x_ = max_mode_x;
             res_y_ = max_mode_y;
         } else if (!ok) {
-            throw invalid_argument("invalid resolution requested!");
+            log_warning("Requested fullscreen resolution " << res_x_ << "x" << res_y_
+                        << " not available; falling back to windowed mode.");
+            fullscreen = false;
         }
     }
 
@@ -480,11 +486,11 @@ list<game_event> system::poll_event_queue() {
         for (game_event& ge : raw) {
             switch (ge.type) {
             case event_type::QUIT:
-                log_info("---------- immediate exit ----------");
-                log::instance().write(std::cerr, log::LOG_SYSINFO);
-                { std::ofstream f("log.txt"); log::instance().write(f, log::LOG_SYSINFO); }
-                throw quit_exception(0);
+                dftd_startup_log("poll_event_queue: received QUIT event, setting quit_requested...");
+                quit_requested = true;
+                break;
             case event_type::WINDOW_EVENT:
+                dftd_startup_log("poll_event_queue: received WINDOW_EVENT (sub=%d, win=%u, my_win=%u)", (int)ge.window_event, ge.window_id, window_id);
                 if (ge.window_id == window_id) {
                     if (ge.window_event == window_event_type::FOCUS_LOST) {
                         if (!is_sleeping) { is_sleeping = true; sleep_time = display_get_ticks(); }

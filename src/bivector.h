@@ -47,37 +47,39 @@ class bivector {
     bivector(const vector2i &sz, const T &v = T()) : datasize(sz), data(sz.x * sz.y, v) {}
 
     T &at(const vector2i &p) {
-        if (p.x >= datasize.x || p.y >= datasize.y) {
+        if (p.x < 0 || p.x >= datasize.x || p.y < 0 || p.y >= datasize.y) {
             std::stringstream ss;
-            ss << "bivector::at " << p;
+            ss << "bivector::at " << p << " (datasize=" << datasize.x << "x" << datasize.y << ")";
             throw std::out_of_range(ss.str());
         }
         return data[p.x + p.y * datasize.x];
     }
     const T &at(const vector2i &p) const {
-        if (p.x >= datasize.x || p.y >= datasize.y) {
+        if (p.x < 0 || p.x >= datasize.x || p.y < 0 || p.y >= datasize.y) {
             std::stringstream ss;
-            ss << "bivector::at " << p;
+            ss << "bivector::at " << p << " (datasize=" << datasize.x << "x" << datasize.y << ")";
             throw std::out_of_range(ss.str());
         }
         return data[p.x + p.y * datasize.x];
     }
     T &at(int x, int y) {
-        if (x >= datasize.x || y >= datasize.y) {
+        if (x < 0 || x >= datasize.x || y < 0 || y >= datasize.y) {
             std::stringstream ss;
-            ss << "bivector::at x=" << x << " y=" << x;
+            ss << "bivector::at x=" << x << " y=" << y << " (datasize=" << datasize.x << "x" << datasize.y << ")";
             throw std::out_of_range(ss.str());
         }
         return data[x + y * datasize.x];
     }
     const T &at(int x, int y) const {
-        if (x >= datasize.x || y >= datasize.y) {
+        if (x < 0 || x >= datasize.x || y < 0 || y >= datasize.y) {
             std::stringstream ss;
-            ss << "bivector::at x=" << x << " y=" << x;
+            ss << "bivector::at x=" << x << " y=" << y << " (datasize=" << datasize.x << "x" << datasize.y << ")";
             throw std::out_of_range(ss.str());
         }
         return data[x + y * datasize.x];
     }
+    T &fast_at(int x, int y) { return data[x + y * datasize.x]; }
+    const T &fast_at(int x, int y) const { return data[x + y * datasize.x]; }
     T &operator[](const vector2i &p) { return at(p); }
     const T &operator[](const vector2i &p) const { return at(p); }
     const vector2i &size() const { return datasize; }
@@ -210,9 +212,9 @@ bivector<T> &bivector<T>::operator+=(const bivector<T> &v) {
 
 template <class T>
 bivector<T> bivector<T>::sub_area(const vector2i &offset, const vector2i &sz) const {
-    if (offset.y + sz.y > datasize.y)
+    if (offset.y < 0 || offset.y + sz.y > datasize.y)
         throw std::invalid_argument("bivector::sub_area, offset.y invalid");
-    if (offset.x + sz.x > datasize.x)
+    if (offset.x < 0 || offset.x + sz.x > datasize.x)
         throw std::invalid_argument("bivector::sub_area, offset.x invalid");
     bivector<T> result(sz);
     for (int y = 0; y < result.datasize.y; ++y)

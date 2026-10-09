@@ -211,33 +211,40 @@ matrix4f model::object::get_transformation() const {
 }
 
 void model::render_init() {
-    // initialize shaders
-    // log_info("Using OpenGL GLSL shaders...");
+    dftd_startup_log("model::render_init start");
 
     glsl_shader::defines_list dl;
+    dftd_startup_log("model::render_init: compiling glsl_plastic...");
     glsl_plastic = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender.vshader",
                                                        get_shader_dir() + "modelrender.fshader");
     dl.push_back("USE_COLORMAP");
+    dftd_startup_log("model::render_init: compiling glsl_color...");
     glsl_color = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender.vshader",
-                                                     get_shader_dir() + "modelrender.fshader");
+                                                     get_shader_dir() + "modelrender.fshader", dl);
     dl.push_back("USE_NORMALMAP");
+    dftd_startup_log("model::render_init: compiling glsl_color_normal...");
     glsl_color_normal = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender.vshader",
-                                                            get_shader_dir() + "modelrender.fshader");
+                                                            get_shader_dir() + "modelrender.fshader", dl);
     glsl_shader::defines_list dl2 = dl;
     dl.push_back("USE_SPECULARMAP");
+    dftd_startup_log("model::render_init: compiling glsl_color_normal_specular...");
     glsl_color_normal_specular = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender.vshader",
                                                                      get_shader_dir() + "modelrender.fshader", dl);
     dl = dl2;
     dl.push_back("USE_CAUSTIC");
+    dftd_startup_log("model::render_init: compiling glsl_color_normal_caustic...");
     glsl_color_normal_caustic = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender.vshader",
                                                                     get_shader_dir() + "modelrender.fshader", dl);
     dl.push_back("USE_SPECULARMAP");
+    dftd_startup_log("model::render_init: compiling glsl_color_normal_specular_caustic...");
     glsl_color_normal_specular_caustic = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender.vshader",
                                                                              get_shader_dir() + "modelrender.fshader", dl);
     dl = dl2;
+    dftd_startup_log("model::render_init: compiling glsl_mirror_clip...");
     glsl_mirror_clip = std::make_unique<glsl_shader_setup>(get_shader_dir() + "modelrender_mirrorclip.vshader",
                                                            get_shader_dir() + "modelrender_mirrorclip.fshader", dl);
     // request uniform locations
+    dftd_startup_log("model::render_init: querying uniform locations...");
     glsl_color->use();
     loc_c_tex_color = glsl_color->get_uniform_location("tex_color");
     glsl_color_normal->use();
@@ -258,6 +265,7 @@ void model::render_init() {
     loc_cnsc_tex_caustic = glsl_color_normal_specular_caustic->get_uniform_location("tex_caustic");
     glsl_mirror_clip->use();
     loc_mc_tex_color = glsl_mirror_clip->get_uniform_location("tex_color");
+    dftd_startup_log("model::render_init: completed successfully.");
 }
 
 void model::render_deinit() {
@@ -277,6 +285,7 @@ model::model() {
 model::model(const string &filename_, bool use_material)
     : filename(filename_),
       scene(0xffffffff, "<scene>", 0) {
+    dftd_startup_log("model::model start: '%s'", filename_.c_str());
     if (init_count == 0)
         render_init();
     ++init_count;
@@ -297,19 +306,23 @@ model::model(const string &filename_, bool use_material)
         filename2 = get_model_dir() + filename.substr(basepath.length());
         ftest = fopen(filename2.c_str(), "rb");
         if (!ftest) {
+            dftd_startup_log("ERROR: could not open model file '%s'", filename2.c_str());
             throw error(string("could not open model file ") + filename2);
         }
     }
     fclose(ftest);
 
+    dftd_startup_log("model::model: reading file '%s' (ext='%s')...", filename2.c_str(), extension.c_str());
     // determine loader by extension here.
     if (extension == ".off") {
         read_off_file(filename2);
     } else if (extension == ".xml" || extension == ".ddxml") {
         read_dftd_model_file(filename2);
     } else {
+        dftd_startup_log("ERROR: unknown model extension '%s'", filename2.c_str());
         throw error(string("model: unknown extension or file format: ") + filename2);
     }
+    dftd_startup_log("model::model: file read complete. Meshes: %u, Materials: %u", (unsigned)meshes.size(), (unsigned)materials.size());
 
     // clear material info if requested
     if (!use_material) {
@@ -320,13 +333,18 @@ model::model(const string &filename_, bool use_material)
         materials.clear();
     }
 
+    dftd_startup_log("model::model: computing bounds...");
     compute_bounds();
+    dftd_startup_log("model::model: computing normals...");
     compute_normals();
+    dftd_startup_log("model::model: compiling...");
     compile();
 
     // try to read physical data file, needs min/max data etc., so call it after
     // compute_bounds().
+    dftd_startup_log("model::model: reading phys file...");
     read_phys_file(filename2);
+    dftd_startup_log("model::model: finished loading '%s'.", filename_.c_str());
 }
 
 model::~model() {
@@ -771,6 +789,7 @@ bool model::mesh::is_degenerated(const vector3f &v0, const vector3f &v1, const v
 }
 
 void model::mesh::compile() {
+    dftd_startup_log("mesh::compile: mesh '%s' with %u vertices, %u indices...", name.c_str(), (unsigned)vertices.size(), (unsigned)indices.size());
     bool has_texture_u0 = false, has_texture_u1 = false;
     if (mymaterial != 0) {
         has_texture_u0 = mymaterial->needs_texcoords();
@@ -792,28 +811,26 @@ void model::mesh::compile() {
     // give tangents as texture coordinates for unit 1.
     if (has_texture_u0 && tangentsx.size() == vs) {
         if (mymaterial->use_default_shader()) {
-            vbo_tangents_righthanded.init_data(4 * sizeof(float) * vs, 0, GL_STATIC_DRAW);
-            float *xdata = (float *)vbo_tangents_righthanded.map(GL_WRITE_ONLY);
+            std::vector<float> tangents_data(4 * vs);
             for (unsigned i = 0; i < vs; ++i) {
-                xdata[4 * i + 0] = tangentsx[i].x;
-                xdata[4 * i + 1] = tangentsx[i].y;
-                xdata[4 * i + 2] = tangentsx[i].z;
-                xdata[4 * i + 3] = (righthanded[i]) ? 1.0f : -1.0f;
+                tangents_data[4 * i + 0] = tangentsx[i].x;
+                tangents_data[4 * i + 1] = tangentsx[i].y;
+                tangents_data[4 * i + 2] = tangentsx[i].z;
+                tangents_data[4 * i + 3] = (righthanded[i]) ? 1.0f : -1.0f;
             }
-            vbo_tangents_righthanded.unmap();
+            vbo_tangents_righthanded.init_data(4 * sizeof(float) * vs, tangents_data.data(), GL_STATIC_DRAW);
             vbo_tangents_righthanded.unbind();
             glsl_shader_setup &gss = mymaterial->specularmap.get() ? *glsl_color_normal_specular : *glsl_color_normal;
             gss.use();
             vertex_attrib_index = gss.get_vertex_attrib_index("tangentx_righthanded");
         } else {
-            vbo_tangents_righthanded.init_data(3 * sizeof(float) * vs, 0, GL_STATIC_DRAW);
-            float *xdata = (float *)vbo_tangents_righthanded.map(GL_WRITE_ONLY);
+            std::vector<float> tangents_data(3 * vs);
             for (unsigned i = 0; i < vs; ++i) {
-                xdata[3 * i + 0] = tangentsx[i].x;
-                xdata[3 * i + 1] = tangentsx[i].y;
-                xdata[3 * i + 2] = tangentsx[i].z;
+                tangents_data[3 * i + 0] = tangentsx[i].x;
+                tangents_data[3 * i + 1] = tangentsx[i].y;
+                tangents_data[3 * i + 2] = tangentsx[i].z;
             }
-            vbo_tangents_righthanded.unmap();
+            vbo_tangents_righthanded.init_data(3 * sizeof(float) * vs, tangents_data.data(), GL_STATIC_DRAW);
             vbo_tangents_righthanded.unbind();
             glsl_shader_setup &gss = static_cast<material_glsl *>(mymaterial)->get_shadersetup();
             gss.use();
@@ -826,6 +843,7 @@ void model::mesh::compile() {
     // performance. OpenGL can do it for use, when we use glDrawRangeElements()
     // later.
     index_data.init_data(indices.size() * 4 /* index type is Uint32! */, &indices[0], GL_STATIC_DRAW);
+    dftd_startup_log("mesh::compile: mesh '%s' compiled successfully.", name.c_str());
 }
 
 void model::mesh::transform(const matrix4f &m) {
@@ -1269,19 +1287,34 @@ void model::material::map::register_layout(const std::string &name,
         if (it->second.ref_count == 0) {
             // load texture. Skins are expected in the same path as the model
             // itself.
-            it->second.mytexture = new texture(basepath + it->second.filename, mapping, texture::CLAMP,
+            string full_path = basepath + it->second.filename;
+            FILE *ftest = fopen(full_path.c_str(), "rb");
+            if (ftest) {
+                fclose(ftest);
+            } else {
+                full_path = get_texture_dir() + it->second.filename;
+            }
+            it->second.mytexture = new texture(full_path, mapping, texture::CLAMP,
                                                makenormalmap, detailh, rgb2grey);
         }
         ++(it->second.ref_count);
     } else {
         if (ref_count == 0) {
             // load texture
+            string full_path = basepath + filename;
+            FILE *ftest = fopen(full_path.c_str(), "rb");
+            if (ftest) {
+                fclose(ftest);
+            } else {
+                full_path = get_texture_dir() + filename;
+            }
             try {
-                mytexture = std::make_unique<texture>(basepath + filename, mapping, texture::CLAMP,
+                mytexture = std::make_unique<texture>(full_path, mapping, texture::CLAMP,
                                                       makenormalmap, detailh, rgb2grey);
-            } catch (std::exception &e) {
-                mytexture = std::make_unique<texture>(get_texture_dir() + filename, mapping, texture::CLAMP,
-                                                      makenormalmap, detailh, rgb2grey);
+            } catch (const std::exception &e) {
+                dftd_startup_log("model::material::map::register_layout: could not load '%s': %s", full_path.c_str(), e.what());
+            } catch (...) {
+                dftd_startup_log("model::material::map::register_layout: could not load '%s'", full_path.c_str());
             }
         }
         ++ref_count;
@@ -1554,6 +1587,7 @@ void model::mesh::display(const texture *caustic_map) const {
 
     // set up vertex data.
     vbo_positions.bind();
+    glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, sizeof(vector3f), 0);
 
     // set up normals (only used with shaders or for plain rendering without normal maps).
@@ -1570,32 +1604,32 @@ void model::mesh::display(const texture *caustic_map) const {
 
     // Using vertex and fragment programs.
     // give tangents/righthanded info as vertex attribute.
+    bool attrib_enabled = false;
     if (has_texture_u0 && tangentsx.size() == vertices.size()) {
+        vbo_tangents_righthanded.bind();
         if (mymaterial->use_default_shader()) {
-            vbo_tangents_righthanded.bind();
             glVertexAttribPointer(vertex_attrib_index, 4, GL_FLOAT, GL_FALSE,
                                   0, 0);
-            glEnableVertexAttribArray(vertex_attrib_index);
         } else {
-            vbo_tangents_righthanded.bind();
             glVertexAttribPointer(vertex_attrib_index, 3, GL_FLOAT, GL_FALSE,
                                   0, 0);
-            glEnableVertexAttribArray(vertex_attrib_index);
         }
+        glEnableVertexAttribArray(vertex_attrib_index);
+        attrib_enabled = true;
     }
-
-    // unbind VBOs (can't be static or we would need to define type of VBO vert/index)
-    vbo_positions.unbind();
 
     // render geometry, glDrawRangeElements is faster than glDrawElements.
     index_data.bind();
     glDrawRangeElements(gl_primitive_type(), 0, vertices.size() - 1, indices.size(), GL_UNSIGNED_INT, 0);
     index_data.unbind();
+    vbo_positions.unbind();
 
     // maybe: add code to show normals as Lines
 
     // cleanup
-    glDisableVertexAttribArray(vertex_attrib_index);
+    if (attrib_enabled) {
+        glDisableVertexAttribArray(vertex_attrib_index);
+    }
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY); // disable tex0
@@ -1618,6 +1652,7 @@ void model::mesh::display_mirror_clip() const {
     }
 
     vbo_positions.bind();
+    glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(3, GL_FLOAT, sizeof(vector3f), 0);
 
     // basic lighting, we need normals
@@ -1632,13 +1667,11 @@ void model::mesh::display_mirror_clip() const {
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 
-    // unbind VBOs
-    vbo_positions.unbind();
-
     // render geometry
     index_data.bind();
     glDrawRangeElements(gl_primitive_type(), 0, vertices.size() - 1, indices.size(), GL_UNSIGNED_INT, 0);
     index_data.unbind();
+    vbo_positions.unbind();
 
     glDisableClientState(GL_NORMAL_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
@@ -1690,22 +1723,52 @@ const model::mesh &model::get_mesh(unsigned nr) const {
     return *meshes.at(nr);
 }
 
+model::mesh *model::object::find_first_mesh() {
+    if (mymesh)
+        return mymesh;
+    for (size_t i = 0; i < children.size(); ++i) {
+        mesh *m = children[i].find_first_mesh();
+        if (m)
+            return m;
+    }
+    return 0;
+}
+
+const model::mesh *model::object::find_first_mesh() const {
+    if (mymesh)
+        return mymesh;
+    for (size_t i = 0; i < children.size(); ++i) {
+        const mesh *m = children[i].find_first_mesh();
+        if (m)
+            return m;
+    }
+    return 0;
+}
+
 model::mesh &model::get_base_mesh() {
-    if (scene.children.empty())
-        return get_mesh(0);
-    mesh *m = scene.children.front().mymesh;
-    if (!m)
-        throw error("can't compute base mesh, mymesh=0");
-    return *m;
+    if (!scene.children.empty()) {
+        for (size_t i = 0; i < scene.children.size(); ++i) {
+            mesh *m = scene.children[i].find_first_mesh();
+            if (m)
+                return *m;
+        }
+    }
+    if (!meshes.empty())
+        return *meshes.front();
+    throw error("can't compute base mesh: model has no meshes");
 }
 
 const model::mesh &model::get_base_mesh() const {
-    if (scene.children.empty())
-        return get_mesh(0);
-    mesh *m = scene.children.front().mymesh;
-    if (!m)
-        throw error("can't compute base mesh, mymesh=0");
-    return *m;
+    if (!scene.children.empty()) {
+        for (size_t i = 0; i < scene.children.size(); ++i) {
+            const mesh *m = scene.children[i].find_first_mesh();
+            if (m)
+                return *m;
+        }
+    }
+    if (!meshes.empty())
+        return *meshes.front();
+    throw error("can't compute base mesh: model has no meshes");
 }
 
 model::material &model::get_material(unsigned nr) {
@@ -1735,20 +1798,38 @@ static inline float hex2float(const std::string &s, size_t off) {
 
 void model::read_phys_file(const string &filename) {
     string fn = filename.substr(0, filename.rfind(".")) + ".phys";
+    dftd_startup_log("model::read_phys_file: checking '%s'...", fn.c_str());
+    FILE *ftest = fopen(fn.c_str(), "rb");
+    if (!ftest) {
+        dftd_startup_log("model::read_phys_file: '%s' not found, skipping optional physics.", fn.c_str());
+        return;
+    }
+    fclose(ftest);
+
+    dftd_startup_log("model::read_phys_file: loading '%s'...", fn.c_str());
     xml_doc physdat(fn);
     try {
         physdat.load();
+    } catch (const std::exception &e) {
+        dftd_startup_log("model::read_phys_file: exception while loading '%s': %s", fn.c_str(), e.what());
+        return;
     } catch (...) {
+        dftd_startup_log("model::read_phys_file: unknown exception while loading '%s'", fn.c_str());
         return;
     }
+    dftd_startup_log("model::read_phys_file: parsing root node...");
     xml_elem physroot = physdat.child("dftd-physical-data");
     xml_elem physcs = physroot.child("cross-section");
     cross_sections.resize(physcs.attru("angles"));
-    std::istringstream iss(physcs.child_text());
+    const char *csptr = physcs.child_text_cstr();
     for (unsigned i = 0; i < cross_sections.size(); ++i) {
-        iss >> cross_sections[i];
+        while (*csptr && (unsigned char)*csptr <= ' ') ++csptr;
+        char *csend = nullptr;
+        cross_sections[i] = strtof(csptr, &csend);
+        csptr = csend;
     }
 
+    dftd_startup_log("model::read_phys_file: setting inertia tensor and volume...");
     // set inertia tensor of mesh #0
     mesh &m = get_base_mesh();
     istringstream iss2(physroot.child("inertia-tensor").child_text());
@@ -1757,28 +1838,30 @@ void model::read_phys_file(const string &filename) {
     // set volume of mesh #0
     m.volume = physroot.child("volume").attrf();
 
-    // set voxel data
+    dftd_startup_log("model::read_phys_file: setting voxel data...");
     xml_elem ve = physroot.child("voxels");
     voxel_resolution = vector3i(ve.attri("x"), ve.attri("y"), ve.attri("z"));
     unsigned nrvoxels = voxel_resolution.x * voxel_resolution.y * voxel_resolution.z;
     voxel_data.reserve(ve.attru("innr"));
     vector<float> insidevol(nrvoxels);
-    istringstream iss3(ve.child_text());
+    const char *vptr = ve.child_text_cstr();
     for (unsigned k = 0; k < nrvoxels; ++k) {
-        iss3 >> insidevol[k];
+        while (*vptr && (unsigned char)*vptr <= ' ') ++vptr;
+        char *vend = nullptr;
+        insidevol[k] = strtof(vptr, &vend);
+        vptr = vend;
     }
-    if (iss3.fail())
-        throw error(filename + ", error reading inside volume data");
 
     vector<float> massdistri;
     if (ve.has_child("mass-distribution")) {
-        istringstream iss4(ve.child("mass-distribution").child_text());
+        const char *mptr = ve.child("mass-distribution").child_text_cstr();
         massdistri.resize(nrvoxels);
         for (unsigned k = 0; k < nrvoxels; ++k) {
-            iss4 >> massdistri[k];
+            while (*mptr && (unsigned char)*mptr <= ' ') ++mptr;
+            char *mend = nullptr;
+            massdistri[k] = strtof(mptr, &mend);
+            mptr = mend;
         }
-        if (iss4.fail())
-            throw error("error reading mass distribution data");
     }
 
     const vector3f &bmax = m.max;
@@ -1851,6 +1934,7 @@ void model::read_phys_file(const string &filename) {
             }
         }
     }
+    dftd_startup_log("model::read_phys_file: '%s' read successfully (%u voxels).", fn.c_str(), (unsigned)voxel_data.size());
 }
 
 float model::get_cross_section(float angle) const {
@@ -2209,19 +2293,23 @@ void model::read_dftd_model_file(const std::string &filename) {
             // vertices
             xml_elem verts = e.child("vertices");
             unsigned nrverts = verts.attru("nr");
-            string values = verts.child_text();
-            msh->vertices.reserve(nrverts);
-            string::size_type valuepos = 0;
+            msh->vertices.resize(nrverts);
+            const char *vptr = verts.child_text_cstr();
             for (unsigned i = 0; i < nrverts; ++i) {
-                float x, y, z;
-                // no stream here because of NaN strings that would break the stream
-                string value = next_part_of_string(values, valuepos);
-                x = atof(value.c_str());
-                value = next_part_of_string(values, valuepos);
-                y = atof(value.c_str());
-                value = next_part_of_string(values, valuepos);
-                z = atof(value.c_str());
-                msh->vertices.push_back(vector3f(x, y, z));
+                float x = 0.0f, y = 0.0f, z = 0.0f;
+                while (*vptr && (unsigned char)*vptr <= ' ') ++vptr;
+                if (*vptr) {
+                    char *vend = nullptr;
+                    x = strtof(vptr, &vend);
+                    vptr = vend;
+                    while (*vptr && (unsigned char)*vptr <= ' ') ++vptr;
+                    y = strtof(vptr, &vend);
+                    vptr = vend;
+                    while (*vptr && (unsigned char)*vptr <= ' ') ++vptr;
+                    z = strtof(vptr, &vend);
+                    vptr = vend;
+                }
+                msh->vertices[i] = vector3f(x, y, z);
             }
             // indices
             xml_elem indis = e.child("indices");
@@ -2235,48 +2323,56 @@ void model::read_dftd_model_file(const std::string &filename) {
                 else
                     throw xml_error(string("invalid indices type, mesh ") + msh->name, filename);
             }
-            values = indis.child_text();
-            msh->indices.reserve(nrindis);
-            istringstream issi(values);
+            msh->indices.resize(nrindis);
+            const char *iptr = indis.child_text_cstr();
             for (unsigned i = 0; i < nrindis; ++i) {
-                unsigned idx;
-                issi >> idx;
+                while (*iptr && (unsigned char)*iptr <= ' ') ++iptr;
+                char *iend = nullptr;
+                unsigned idx = (unsigned)strtoul(iptr, &iend, 10);
+                iptr = iend;
                 if (idx >= nrverts)
                     throw xml_error(string("vertex index out of range, mesh ") + msh->name, filename);
-                msh->indices.push_back(idx);
+                msh->indices[i] = idx;
             }
             // tex coords
             if (msh->mymaterial) {
                 xml_elem texcs = e.child("texcoords");
-                msh->texcoords.reserve(nrverts);
-                values = texcs.child_text();
-                string::size_type valuepos = 0;
+                msh->texcoords.resize(nrverts);
+                const char *tptr = texcs.child_text_cstr();
                 for (unsigned i = 0; i < nrverts; ++i) {
-                    float x, y;
-                    // no stream here because of NaN strings that would break the stream
-                    string value = next_part_of_string(values, valuepos);
-                    x = atof(value.c_str());
-                    value = next_part_of_string(values, valuepos);
-                    y = atof(value.c_str());
-                    msh->texcoords.push_back(vector2f(x, y));
+                    float x = 0.0f, y = 0.0f;
+                    while (*tptr && (unsigned char)*tptr <= ' ') ++tptr;
+                    if (*tptr) {
+                        char *tend = nullptr;
+                        x = strtof(tptr, &tend);
+                        tptr = tend;
+                        while (*tptr && (unsigned char)*tptr <= ' ') ++tptr;
+                        y = strtof(tptr, &tend);
+                        tptr = tend;
+                    }
+                    msh->texcoords[i] = vector2f(x, y);
                 }
             }
 
             // normals
             if (e.has_child("normals")) {
-                msh->normals.reserve(nrverts);
-                values = e.child("normals").child_text();
-                string::size_type valuepos = 0;
+                msh->normals.resize(nrverts);
+                const char *nptr = e.child("normals").child_text_cstr();
                 for (unsigned i = 0; i < nrverts; ++i) {
-                    float x, y, z;
-                    // no stream here because of NaN strings that would break the stream
-                    string value = next_part_of_string(values, valuepos);
-                    x = atof(value.c_str());
-                    value = next_part_of_string(values, valuepos);
-                    y = atof(value.c_str());
-                    value = next_part_of_string(values, valuepos);
-                    z = atof(value.c_str());
-                    msh->normals.push_back(vector3f(x, y, z));
+                    float x = 0.0f, y = 0.0f, z = 0.0f;
+                    while (*nptr && (unsigned char)*nptr <= ' ') ++nptr;
+                    if (*nptr) {
+                        char *nend = nullptr;
+                        x = strtof(nptr, &nend);
+                        nptr = nend;
+                        while (*nptr && (unsigned char)*nptr <= ' ') ++nptr;
+                        y = strtof(nptr, &nend);
+                        nptr = nend;
+                        while (*nptr && (unsigned char)*nptr <= ' ') ++nptr;
+                        z = strtof(nptr, &nend);
+                        nptr = nend;
+                    }
+                    msh->normals[i] = vector3f(x, y, z);
                 }
             }
         } else if (etype == "objecttree") {

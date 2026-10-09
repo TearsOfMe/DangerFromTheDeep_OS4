@@ -1,0 +1,99 @@
+================================================================================
+           Danger from the Deep (AmigaOS 4.1) - Legal & License Notices
+================================================================================
+
+This software package contains free and open-source software licensed under
+several approved licenses. The following is an overview of the licensing
+governing the components used in the game and the AmigaOS 4 port:
+
+1. DANGER FROM THE DEEP - SOURCE CODE
+-------------------------------------
+The Danger from the Deep source code is licensed under the terms of the:
+GNU General Public License, Version 2 (GPLv2).
+Copyright (C) 2003-2006 Thorsten Jordan, Luis Barrancos and contributors.
+AmigaOS 4.1 port Copyright (C) 2026 TearsOfMe.
+
+The complete text of the GPLv2 license is available in:
+- LICENSE.txt (Section 4)
+- or online at: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+
+2. ARTWORK, 3D MODELS, TEXTURES & SOUND EFFECTS
+------------------------------------------------
+All 2D and 3D artwork, models, textures, UI elements, and sound effects created
+by Luis Barrancos, Thorsten Jordan, Martin Albertstadt, and Marco Sarolo are
+licensed under the:
+Creative Commons Attribution-NonCommercial-NoDerivs 2.5 (CC-BY-NC-ND 2.5) License.
+
+Terms:
+- Attribution: You must give appropriate credit.
+- NonCommercial: You may not use the material for commercial purposes.
+- NoDerivatives: If you remix, transform, or build upon the material, you may
+  not distribute the modified material.
+Full deed in LICENSE.txt.
+
+
+3. SOUNDTRACKS
+--------------
+- "I'm in the Mood" by Vera Lynn:
+  Creative Commons Attribution-NonCommercial-NoDerivs 2.0 (CC-BY-NC-ND 2.0).
+- "Trouble Trouble" by Betty Roche:
+  Public Domain (Internet Archive / Public Domain 4U).
+
+
+4. THIRD-PARTY LIBRARIES & RUNTIMES
+-----------------------------------
+The following libraries were used and/or statically linked into the AmigaOS 4 build:
+
+a) SDL 2.0, SDL2_image, SDL2_mixer:
+   License: zlib License
+   Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+   https://www.libsdl.org/
+
+b) Mesa 3D Graphics Library & mesa.library:
+   License: MIT / X11 License
+   Copyright (C) 1999-2024 Brian Paul and Mesa contributors.
+   https://www.mesa3d.org/
+
+c) GL4ES (OpenGL for Embedded Systems / Desktop GL Wrapper):
+   License: MIT License
+   Copyright (c) 2014-2024 Sebastien Chevalier (ptitSeb).
+   https://github.com/ptitSeb/gl4es
+
+d) FFTW 3.x (Fastest Fourier Transform in the West):
+   License: GNU General Public License v2 or later (GPLv2+)
+   Copyright (C) 1997-2024 Matteo Frigo, Steven G. Johnson, MIT.
+   http://www.fftw.org/
+
+e) TinyXML:
+   License: zlib License
+   Copyright (c) 2000-2006 Lee Thomason.
+   http://www.grinninglizard.com/tinyxml/
+
+f) libbzip2:
+   License: BSD-style License
+   Copyright (C) 1996-2019 Julian R. Seward.
+   https://sourceware.org/bzip2/
+
+g) libpng:
+   License: libpng License
+   Copyright (c) 1995-2024 Glenn Randers-Pehrson et al.
+   http://www.libpng.org/
+
+h) libjpeg:
+   License: Independent JPEG Group (IJG) License
+   Copyright (C) 1991-2020 Thomas G. Lane, Guido Vollbeding.
+   https://ijg.org/
+
+i) libwebp:
+   License: BSD 3-Clause License
+   Copyright (c) 2010 Google Inc.
+
+j) libvorbis & libogg:
+   License: BSD 3-Clause License
+   Copyright (c) 1994-2020 Xiph.Org Foundation.
+   https://xiph.org/
+
+================================================================================
+See LICENSE.txt in this folder for the full texts of the GPLv2 and Creative Commons licenses.
+================================================================================

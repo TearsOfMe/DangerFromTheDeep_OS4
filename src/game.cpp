@@ -215,21 +215,28 @@ game::game(class cfg &cfg_ref, class log &log_ref, const string &subtype, unsign
     date currentdate((unsigned)time);
     equipment_date = currentdate; // fixme: another crude guess or hack
 
+    dftd_startup_log("game: Initializing water simulation...");
     mywater = std::make_unique<water>(time, cfg_ref);
+    dftd_startup_log("game: Water simulation initialized.");
     // myheightgen.reset(new height_generator_map("default.xml"));
 
+    dftd_startup_log("game: Initializing terrain...");
     myheightgen = std::make_unique<terrain<Sint16>>(get_map_dir() + "terrain/terrain.xml", get_map_dir() + "terrain/", TERRAIN_NR_LEVELS + 1);
+    dftd_startup_log("game: Terrain initialized.");
 
     // Convoy-constructor creates all the objects and spawns them in this game object.
     // fixme: creation of convoys should be rather moved to this class, so object creation
     // and logic is centralized.
+    dftd_startup_log("game: Spawning convoy...");
     auto cv = std::make_unique<convoy>(*this, (convoy::types)(cvsize), (convoy::esctypes)(cvesc));
     spawn_convoy(std::move(cv));
+    dftd_startup_log("game: Convoy spawned.");
 
     lookout_sensor tmpsensor;
     vector<angle> subangles;
     submarine *psub = 0;
     for (unsigned i = 0; i < nr_of_players; ++i) {
+        dftd_startup_log("game: Loading player submarine subtype '%s'...", subtype.c_str());
         xml_doc doc(data_file().get_filename(subtype));
         doc.load();
         auto sub = std::make_unique<submarine>(*this, doc.first_child());
@@ -240,6 +247,7 @@ game::game(class cfg &cfg_ref, class log &log_ref, const string &subtype, unsign
             player = psub;
             compute_max_view_dist();
         }
+        dftd_startup_log("game: Player submarine loaded.");
 
         // distribute subs randomly around convoy.
         angle tmpa;
@@ -505,11 +513,14 @@ void game::simulate_objects_mt(double delta_t, unsigned idxoff, unsigned idxmod,
                 nearest_contact = dist;
         }
         try {
-            ships[i]->simulate(delta_t);
-            if (record)
-                ships[i]->remember_position(get_time());
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+            if (ships[i]->simulate(delta_t)) {
+                if (record)
+                    ships[i]->remember_position(get_time());
+            }
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in ship: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in ship!");
         }
     }
 
@@ -521,11 +532,14 @@ void game::simulate_objects_mt(double delta_t, unsigned idxoff, unsigned idxmod,
                 nearest_contact = dist;
         }
         try {
-            submarines[i]->simulate(delta_t);
-            if (record)
-                submarines[i]->remember_position(get_time());
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+            if (submarines[i]->simulate(delta_t)) {
+                if (record)
+                    submarines[i]->remember_position(get_time());
+            }
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in submarine: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in submarine!");
         }
     }
 
@@ -538,19 +552,24 @@ void game::simulate_objects_mt(double delta_t, unsigned idxoff, unsigned idxmod,
         }
         try {
             airplanes[i]->simulate(delta_t);
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in airplane: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in airplane!");
         }
     }
 
     // ------------------------------ torpedoes ------------------------------
     for (unsigned i = idxoff; i < torpedoes.size(); i += idxmod) {
         try {
-            torpedoes[i]->simulate(delta_t);
-            if (record)
-                torpedoes[i]->remember_position(get_time());
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+            if (torpedoes[i]->simulate(delta_t)) {
+                if (record)
+                    torpedoes[i]->remember_position(get_time());
+            }
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in torpedo: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in torpedo!");
         }
     }
 
@@ -558,8 +577,10 @@ void game::simulate_objects_mt(double delta_t, unsigned idxoff, unsigned idxmod,
     for (unsigned i = idxoff; i < depth_charges.size(); i += idxmod) {
         try {
             depth_charges[i]->simulate(delta_t);
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in depth charge: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in depth charge!");
         }
     }
 
@@ -567,8 +588,10 @@ void game::simulate_objects_mt(double delta_t, unsigned idxoff, unsigned idxmod,
     for (unsigned i = idxoff; i < gun_shells.size(); i += idxmod) {
         try {
             gun_shells[i]->simulate(delta_t);
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in gun shell: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in gun shell!");
         }
     }
 
@@ -576,8 +599,10 @@ void game::simulate_objects_mt(double delta_t, unsigned idxoff, unsigned idxmod,
     for (unsigned i = idxoff; i < water_splashes.size(); i += idxmod) {
         try {
             water_splashes[i]->simulate(delta_t);
-        } catch (sea_object::is_dead_exception &) {
-            // nothing to do
+        } catch (const std::exception &e) {
+            dftd_startup_log("simulate_objects_mt: exception in water splash: %s", e.what());
+        } catch (...) {
+            dftd_startup_log("simulate_objects_mt: unknown exception in water splash!");
         }
     }
 

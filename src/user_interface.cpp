@@ -175,11 +175,23 @@ user_interface::user_interface(game &gm) : mygame(&gm),
     // const double z_far = 20000.0;
 
     add_loading_screen("user interface initialized");
+    dftd_startup_log("user_interface: User interface base initialized, creating terrain manager...");
 
-    myterrain = std::make_unique<terrain_manager>(TERRAIN_NR_LEVELS, TERRAIN_RESOLUTION_N, mygame->get_height_gen());
-    myterrain->set_viewer_position(gm.get_player()->get_pos());
+    try {
+        myterrain = std::make_unique<terrain_manager>(TERRAIN_NR_LEVELS, TERRAIN_RESOLUTION_N, mygame->get_height_gen());
+        dftd_startup_log("user_interface: terrain_manager created, setting viewer position...");
+        myterrain->set_viewer_position(gm.get_player()->get_pos());
+        dftd_startup_log("user_interface: set_viewer_position completed.");
+    } catch (const std::exception &e) {
+        dftd_startup_log("user_interface: FATAL EXCEPTION during terrain initialization: %s", e.what());
+        throw;
+    } catch (...) {
+        dftd_startup_log("user_interface: FATAL UNKNOWN EXCEPTION during terrain initialization!");
+        throw;
+    }
 
     add_loading_screen("terrain loaded");
+    dftd_startup_log("user_interface: Terrain manager initialized.");
 }
 
 void user_interface::finish_construction() {
@@ -234,17 +246,21 @@ void user_interface::add_elevation(angle a) {
 }
 
 void user_interface::display() const {
-    // fixme: brightness needs sun_pos, so compute_sun_pos() is called multiple times per frame
-    // but is very costly. we could cache it.
+    dftd_startup_log("user_interface::display: computing refraction color...");
     mygame->get_water().set_refraction_color(mygame->compute_light_color(mygame->get_player()->get_pos()));
+    dftd_startup_log("user_interface::display: calling displays[%u]->display...", current_display);
     displays[current_display]->display(*mygame);
+    dftd_startup_log("user_interface::display: displays[%u]->display complete.", current_display);
 
     // popups
-    if (current_popup > 0)
+    if (current_popup > 0) {
+        dftd_startup_log("user_interface::display: drawing popup %u...", current_popup);
         popups[current_popup - 1]->display(*mygame);
+    }
 
     // draw screen selector if visible
     if (screen_selector_visible) {
+        dftd_startup_log("user_interface::display: drawing screen selector...");
         sys().prepare_2d_drawing();
         screen_selector->draw();
         sys().unprepare_2d_drawing();
@@ -252,6 +268,7 @@ void user_interface::display() const {
 
     // draw music playlist if visible
     if (playlist_visible) {
+        dftd_startup_log("user_interface::display: drawing playlist...");
         sys().prepare_2d_drawing();
         music_playlist->draw();
         sys().unprepare_2d_drawing();
@@ -259,10 +276,12 @@ void user_interface::display() const {
 
     // draw main_menu if visible
     if (main_menu_visible) {
+        dftd_startup_log("user_interface::display: drawing main menu...");
         sys().prepare_2d_drawing();
         main_menu->draw();
         sys().unprepare_2d_drawing();
     }
+    dftd_startup_log("user_interface::display: complete.");
 }
 
 void user_interface::set_time(double tm) {
@@ -283,6 +302,12 @@ void user_interface::set_time(double tm) {
 }
 
 void user_interface::process_input(const game_event &event) {
+    if (event.type == event_type::QUIT || sys().is_quit_requested()) {
+        sys().request_quit();
+        request_abort(true);
+        return;
+    }
+
     if (panel_visible) {
         if (mypanel->check_mouse_event(event))
             return;
@@ -350,6 +375,11 @@ void user_interface::process_input(const game_event &event) {
 }
 
 void user_interface::process_input(std::list<game_event> &events) {
+    if (sys().is_quit_requested()) {
+        request_abort(true);
+        return;
+    }
+
     if (current_popup > 0)
         popups[current_popup - 1]->process_input(*mygame, events);
 
@@ -424,6 +454,7 @@ bool user_interface::time_scale_down() {
 }
 
 void user_interface::draw_infopanel(bool onlytexts) const {
+    dftd_startup_log("user_interface::draw_infopanel: starting (onlytexts=%d, panel_visible=%d)...", onlytexts ? 1 : 0, panel_visible ? 1 : 0);
     if (!onlytexts && panel_visible) {
         // Prepare values for panel
         double heading = mygame->get_player()->get_heading().ui_value();
@@ -438,7 +469,9 @@ void user_interface::draw_infopanel(bool onlytexts) const {
 
     // draw messages using message queue subsystem
     int y = (onlytexts ? sys().get_res_y_2d() : mypanel->get_y_position());
+    dftd_startup_log("user_interface::draw_infopanel: drawing messages at y=%d...", y);
     mymessages->draw(mygame->get_time(), y, font_vtremington12);
+    dftd_startup_log("user_interface::draw_infopanel: complete.");
 }
 
 void user_interface::add_message(const string &s) {

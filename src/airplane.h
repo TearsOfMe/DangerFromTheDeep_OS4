@@ -50,7 +50,7 @@ class airplane : public sea_object {
     virtual void load(const xml_elem &parent);
     virtual void save(xml_elem &parent) const;
 
-    virtual void simulate(double delta_time);
+    virtual bool simulate(double delta_time);
 
     virtual double get_mass() const { return 4000.0; } // 4 tons.
     virtual double get_engine_thrust() const { return 20000.0; }

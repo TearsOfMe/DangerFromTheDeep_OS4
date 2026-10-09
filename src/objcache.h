@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <map>
 #include <memory>
 #include <string>
+#include "log.h"
 
 ///\brief Handles and caches instances of globally used objects using std::shared_ptr.
 ///
@@ -85,7 +86,9 @@ class objcachet {
             cache.erase(it);
         }
 
+        dftd_startup_log("objcache::ref_shared: loading '%s'...", (basedir + objname).c_str());
         auto sp = std::make_shared<T>(basedir + objname);
+        dftd_startup_log("objcache::ref_shared: '%s' loaded successfully.", (basedir + objname).c_str());
         cache[objname] = sp;
         return sp;
     }

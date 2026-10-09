@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "texture.h"
 #include "vector3.h"
 #include "vector4.h"
+#include "log.h"
 #include <vector>
 
 /* possible interface changes ahead:
@@ -102,12 +103,17 @@ class height_generator {
     ///@param dest - destination where to write normal values
     virtual void compute_normals(int detail, const vector2i &coord_bl,
                                  const vector2i &coord_sz, vector3f *dest) {
+        dftd_startup_log("height_generator::compute_normals: detail=%d bl=(%d,%d) sz=(%d,%d)...",
+                         detail, coord_bl.x, coord_bl.y, coord_sz.x, coord_sz.y);
         const float zh = sample_spacing * 0.5f * (detail >= 0 ? (1 << detail) : 1.0f / (1 << -detail));
         // compute heights to generate normals, we need one height value more in
         // every direction
         vector2i s2 = coord_sz + vector2i(2, 2);
         std::vector<float> h(s2.x * s2.y);
+        dftd_startup_log("height_generator::compute_normals: calling compute_heights(detail=%d, sz=(%d,%d))...",
+                         detail, s2.x, s2.y);
         compute_heights(detail, coord_bl - vector2i(1, 1), s2, &h[0], 0, 0);
+        dftd_startup_log("height_generator::compute_normals: compute_heights returned, computing vectors...");
         unsigned hli = s2.x + 1;
         for (int y = 0; y < coord_sz.y; ++y) {
             for (int x = 0; x < coord_sz.x; ++x) {
@@ -119,6 +125,7 @@ class height_generator {
             }
             hli += 2;
         }
+        dftd_startup_log("height_generator::compute_normals: done.");
     }
 
     /// get absolute minimum and maximum height of all levels, used for clipping
