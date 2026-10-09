@@ -1,0 +1,227 @@
+================================================================================
+                    DANGER FROM THE DEEP (AmigaOS 4.1)
+                                USER MANUAL
+================================================================================
+
+Welcome to the native AmigaOS 4.1 port of "Danger from the Deep" (dftd)!
+This simulation puts you on the bridge of a German submarine during World
+War II, featuring realistic physics simulation, detailed 3D graphics, celestial
+mechanics, acoustic sensors, and convoy battle tactics.
+
+
+TABLE OF CONTENTS:
+------------------
+1. System Requirements
+2. Installation
+3. Included Executables (Without Debug vs. With Debug)
+4. Keyboard Controls & Stations (F1 - F10)
+5. Starting Missions & Save Games
+6. Tactical Tips for Submarine Commanders
+7. Graphics Settings & Performance
+8. Troubleshooting & Diagnostics
+9. Copyright & Licenses
+
+
+================================================================================
+1. SYSTEM REQUIREMENTS
+================================================================================
+- Operating System: AmigaOS 4.1 Final Edition (Update 1 or Update 2 recommended)
+- Hardware: AmigaOne X1000, X5000, A1222+, Sam460cr/ex or compatible PowerPC system
+- Graphics Card: RadeonHD or RadeonRX with active 3D hardware acceleration
+  (Warp3D Nova and Mesa 3D / OpenGL ES)
+- Memory: Minimum 1 GB RAM recommended
+- Audio: AHI-compatible sound system
+- Stack: A 4 MB stack cookie is embedded into the executable ($STACK: 4194304).
+  Manual stack adjustment in the shell or icon is normally not required.
+
+
+================================================================================
+2. INSTALLATION
+================================================================================
+1. Extract the LHA archive to any location on your hard drive
+   (e.g., "Work:Games/DangerFromTheDeep" or "DH1:Games/DangerFromTheDeep").
+2. Open the drawer on Workbench.
+3. Start the game by double-clicking one of the program icons:
+   - "dangerdeep_mesa_fast" (recommended for regular gameplay)
+   - or "dangerdeep_mesa" (for troubleshooting with detailed log file).
+
+NOTE ON MESA LIBRARY:
+The "libs/" subdirectory contains the required "mesa.library". If your system
+does not already have an up-to-date Mesa library installed in "LIBS:", you can
+copy this file there if needed.
+
+
+================================================================================
+3. INCLUDED EXECUTABLES
+================================================================================
+This archive includes two specialized Mesa binaries:
+
+A) "dangerdeep_mesa_fast" (WITHOUT DEBUG - RECOMMENDED FOR REGULAR PLAY)
+   ---------------------------------------------------------------------
+   - Maximum performance: All CPU and compiler optimizations (-O3, AltiVec/VMX
+     acceleration for PowerPC) are active.
+   - Zero logging overhead: Verbose debug disk logging to "dftd_startup.log"
+     during gameplay is disabled.
+   - Delivers the highest frame rates (FPS) in the 3D ocean and on the map.
+
+B) "dangerdeep_mesa" (WITH DEBUG - FOR ANALYSIS & DIAGNOSTICS)
+   -----------------------------------------------------------
+   - Comprehensive logging: Writes detailed status and initialization messages
+     to "PROGDIR:dftd_startup.log".
+   - Extended diagnostics: In case of unexpected conditions or missing files,
+     function call traces and stack information are captured.
+   - Ideal for diagnosing graphics driver or sound configuration issues.
+
+
+================================================================================
+4. KEYBOARD CONTROLS & STATIONS
+================================================================================
+
+STATIONS & CAMERAS (F1 to F10):
+-------------------------------
+[F1]   Central Control Room & Gauges (Helm, Depth Gauges, Compass)
+[F2]   Periscope (Attack & Observation)
+[F3]   UZO (Submarine Target Optics on the Bridge for surface night attacks)
+[F4]   Free Bridge View (Surface watch)
+[F5]   Navigation & Situation Map (World map, convoys, sensor contacts)
+[F6]   Torpedo Room (Tube allocation, reloading, preheating, pistol settings)
+[F7]   Damage Control Room (Compartment damage status, bilge pumps)
+[F8]   War Diary / Logbook (KTB)
+[F9]   Sunk Tonnage Record
+[F10]  Free External Camera
+
+SUBMARINE CONTROLS (HELM & ENGINES):
+------------------------------------
+[Cursor Left / Right]   Rudder Port / Starboard
+[Cursor Up / Down]      Dive Planes (Down / Up)
+[Shift + Cursor Keys]   Faster rudder movement
+[Enter / Return]        Rudder amidships (center rudder)
+
+[1]   Ahead Slow
+[2]   Ahead Half
+[3]   Ahead Flank (Maximum speed)
+[4]   Stop Engines
+[5]   Astern Slow
+[6]   Astern Full
+
+DIVING COMMANDS & DEPTH CONTROL:
+--------------------------------
+[s]   Surface (Blow ballast tanks, full surface transit)
+[p]   Periscope depth (approx. 12-14 meters depending on submarine type)
+[d]   Snorkel depth (if snorkel equipped)
+[c]   ALARM! / Crash dive (flood all negative tanks, steep dive angle)
+[0]   Raise / lower periscope (0 on main keyboard)
+[f]   Raise / lower snorkel
+
+TARGETING & WEAPONS:
+--------------------
+[Space]             Lock / track target ship
+[i]                 Identify target (open Recognition Manual)
+[h]                 Turn submarine heading towards current view direction
+[v]                 Align view direction to current compass heading
+[t]                 Fire torpedo (automatic tube selection)
+[Shift + 1..6]      Fire specific torpedo tube 1 to 6
+[z]                 Toggle optical zoom level (binoculars / periscope)
+[g]                 Manned deck gun view / fire
+[Shift + g]         Exit deck gun station
+
+NAVIGATION MAP (F5):
+--------------------
+[+] / [-]           Zoom in / out on map
+[Arrow Keys]        Scroll map view
+
+TIME COMPRESSION & SYSTEM:
+--------------------------
+[F11]               Increase time compression (1x -> 2x -> 4x -> 8x -> 16x -> 32x)
+[F12]               Decrease time compression
+[Pause]             Pause / unpause simulation
+[Esc]               Pause & quit menu
+[Print Screen]      Save screenshot
+
+
+================================================================================
+5. STARTING MISSIONS & SAVE GAMES
+================================================================================
+
+MAIN MENU:
+- Single Mission:
+  * "Convoy Battle": Large convoy with escorts and merchant freighters.
+  * "Historical Missions": Predefined historical scenarios and tactical drills.
+  * "Saved Game": Resume saved submarine patrols.
+- Mission Editor: Create custom naval scenarios.
+- Ships & Airplanes: 3D showcase of all historical ships, planes, and weapons.
+- Options: Language, graphic details, sound volume.
+
+SAVING & LOADING:
+- During gameplay, open the pause menu [Esc] to save your patrol.
+- In the save dialogue, type any name. Keyboard input (letters, numbers, space,
+  backspace, delete, and arrow keys) is fully supported.
+- Saved games are stored in "PROGDIR:save/".
+
+
+================================================================================
+6. TACTICAL TIPS FOR SUBMARINE COMMANDERS
+================================================================================
+- BEWARE OF DESTROYERS:
+  Escort vessels (Tribal class, Javelin, Flower-class corvettes) carry active
+  ASDIC (sonar) and depth charges. When detected, dive deep immediately (> 100 m)
+  and reduce speed to silent running (speed 1 or 2) to minimize radiated noise.
+
+- NIGHT ATTACKS:
+  At night, a surfaced submarine is very difficult to spot visually. Approach
+  convoys on the surface at medium speed and use the UZO [F3] for precision
+  torpedo shots from 1000-1500 meters.
+
+- TORPEDO MANAGEMENT [F6]:
+  Reloading torpedo tubes takes considerable time and is slower in heavy seas
+  or at high speeds. Pre-heat electric torpedoes before firing to maximize
+  reliability and torpedo speed.
+
+- DAMAGE CONTROL [F7]:
+  Flooding must be countered immediately by closing bulkheads and activating
+  bilge pumps before the excess water weight pulls the boat past its crush depth.
+
+
+================================================================================
+7. GRAPHICS SETTINGS & PERFORMANCE
+================================================================================
+- Command line options via Amiga Shell:
+  dangerdeep_mesa_fast --res 1024*768       (Standard 4:3 resolution, recommended)
+  dangerdeep_mesa_fast --res 1280*720       (Widescreen 720p)
+  dangerdeep_mesa_fast --nofullscreen       (Windowed mode on Workbench)
+  dangerdeep_mesa_fast --nosound            (Run without sound)
+  dangerdeep_mesa_fast --maxfps 60          (Limit frame rate to 60 FPS)
+
+- In the in-game options menu, water reflections, spray particle effects,
+  and terrain mesh detail can be adjusted for optimal performance.
+
+
+================================================================================
+8. TROUBLESHOOTING & DIAGNOSTICS
+================================================================================
+1. GAME DOES NOT START / 3D ERROR:
+   Ensure 3D hardware drivers are properly installed for your Radeon card
+   ("Warp3D Nova" and "mesa.library"). A compatible "mesa.library" is included
+   in the "libs/" directory.
+
+2. CHECKING THE LOG FILE:
+   If the game terminates unexpectedly, launch "dangerdeep_mesa" (the debug
+   version). Then inspect "dftd_startup.log" in the game directory to see the
+   exact cause (e.g. video memory exhaustion or missing assets).
+
+3. AUDIO ISSUES:
+   Verify that AmigaOS audio preferences (AHI) have a valid sound unit
+   configured (e.g., Envy24HT on AmigaOne X1000).
+
+
+================================================================================
+9. COPYRIGHT & LICENSES
+================================================================================
+- Danger from the Deep source code: GNU General Public License v2 (GPLv2).
+- Graphics, 3D models, textures: Creative Commons CC-BY-NC-ND 2.5.
+- Soundtracks: Creative Commons CC-BY-NC-ND 2.0 / Public Domain.
+- AmigaOS 4.1 port: Open Source port by TearsOfMe (2026).
+- See "LIZENZEN.txt", "LEGAL_NOTICES.txt", and "LICENSE.txt" for full legal details.
+
+Good hunting and smooth sailing!
+================================================================================

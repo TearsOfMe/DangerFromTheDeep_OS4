@@ -14,6 +14,7 @@ set(CMAKE_CXX_FLAGS_INIT "-athread=native")
 set(CMAKE_PREFIX_PATH
     /opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib
     /opt/ppc-amigaos/ppc-amigaos/SDK/local/common
+    "${CMAKE_CURRENT_LIST_DIR}/../third_party/build_fftw"
     /opt/code/third_party/build_fftw
 )
 
@@ -21,6 +22,7 @@ set(CMAKE_FIND_ROOT_PATH
     /opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib
     /opt/ppc-amigaos/ppc-amigaos/SDK/local/common
     /opt/ppc-amigaos/ppc-amigaos/SDK
+    "${CMAKE_CURRENT_LIST_DIR}/../third_party/build_fftw"
     /opt/code/third_party/build_fftw
 )
 
