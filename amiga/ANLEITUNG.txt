@@ -42,8 +42,8 @@ INHALTSVERZEICHNIS:
    (z. B. "Work:Games/DangerFromTheDeep" oder "DH1:Spiele/DangerFromTheDeep").
 2. Oeffnen Sie das Verzeichnis auf der Workbench.
 3. Starten Sie das Spiel per Doppelklick auf eines der Programmicons:
-   - "dangerdeep_mesa_fast" (empfohlen fuer normales Spielen)
-   - oder "dangerdeep_mesa" (fuer Fehlersuche mit Log-Datei).
+   - "DangerFromTheDeep" (empfohlen fuer normales Spielen)
+   - oder "DangerFromTheDeep_Debug" (fuer Fehlersuche mit Log-Datei).
 
 HINWEIS ZUR MESA-BIBLIOTHEK:
 Im Unterordner "libs/" befindet sich die benoetigte "mesa.library". Sollte auf
@@ -56,20 +56,20 @@ kann diese Datei bei Bedarf dorthin kopiert werden.
 ================================================================================
 In diesem Archiv befinden sich zwei spezialisierte Mesa-Kompilate:
 
-A) "dangerdeep_mesa_fast" (OHNE DEBUG - EMPFOHLEN FUER REGULAERES SPIELEN)
-   -----------------------------------------------------------------------
+A) "DangerFromTheDeep" (OHNE DEBUG - EMPFOHLEN FUER REGULAERES SPIELEN)
+   --------------------------------------------------------------------
    - Maximale Ablaufgeschwindigkeit: Alle CPU- und Compiler-Optimierungen
      (-O3, AltiVec/VMX-Beschleunigung fuer PowerPC) sind aktiv.
-   - Kein Protokollierungs-Overhead: Unnoetige Debug- und Datei-Logging-Aufrufe
-     in "dftd_startup.log" waehrend des Spiels sind deaktiviert.
+   - Kein Protokollierungs-Overhead: Alle Debug-, Konsolen- und Log-Ausgaben
+     sind vollstaendig deaktiviert (keine Konsolenfenster, keine Dateizugriffe).
    - Bietet die hoechsten Bildraten (FPS) im 3D-Ozean und auf der Navigationskarte.
 
-B) "dangerdeep_mesa" (MIT DEBUG - FUER ANALYSE & PROBLEMLOESUNG)
-   -------------------------------------------------------------
+B) "DangerFromTheDeep_Debug" (MIT DEBUG - FUER ANALYSE & PROBLEMLOESUNG)
+   ---------------------------------------------------------------------
    - Ausfuehrliche Protokollierung: Schreibt detaillierte Status- und Initiali-
-     sierungsmeldungen in die Datei "PROGDIR:dftd_startup.log".
+     sierungsmeldungen in die Datei "T:dangerdeep_startup.log".
    - Erweiterte Diagnose: Bei unerwarteten Zustaenden oder fehlenden Dateien
-     werden genaue Funktionsaufrufe und Stacktraces erfasst.
+     werden genaue Funktionsaufrufe und Meldungen erfasst.
    - Ideal, wenn auf einem System Grafik- oder Soundprobleme untersucht werden
      sollen.
 
@@ -190,11 +190,11 @@ SPEICHERN & LADEN:
 7. GRAFIKEINSTELLUNGEN & PERFORMANCE
 ================================================================================
 - Startoptionen ueber das Amiga-Shell:
-  dangerdeep_mesa_fast --res 1024*768       (Standardaufloesung, empfohlen)
-  dangerdeep_mesa_fast --res 1280*720       (Breitbild 720p)
-  dangerdeep_mesa_fast --nofullscreen       (Fenstermodus auf der Workbench)
-  dangerdeep_mesa_fast --nosound            (Ohne Soundausgabe)
-  dangerdeep_mesa_fast --maxfps 60          (FPS auf 60 limitieren)
+  DangerFromTheDeep --res 1024*768       (Standardaufloesung, empfohlen)
+  DangerFromTheDeep --res 1280*720       (Breitbild 720p)
+  DangerFromTheDeep --nofullscreen       (Fenstermodus auf der Workbench)
+  DangerFromTheDeep --nosound            (Ohne Soundausgabe)
+  DangerFromTheDeep --maxfps 60          (FPS auf 60 limitieren)
 
 - In den Spieloptionen koennen Sie Wasserreflexionen, Gischt-Effekte und die
   Gelaendedetails fuer schwaechere Grafikkarten anpassen.
@@ -209,10 +209,10 @@ SPEICHERN & LADEN:
    eine passende "mesa.library" bei.
 
 2. LOGDATEI PRUEFEN:
-   Sollte das Spiel unerwartet abbrechen, starten Sie "dangerdeep_mesa" (die
-   Debug-Version). Oeffnen Sie danach die Textdatei "dftd_startup.log" im
-   Spielverzeichnis, um die genaue Ursache (z. B. Grafikspeicher voll oder
-   fehlende Hardware-Erweiterungen) einzusehen.
+   Sollte das Spiel unerwartet abbrechen, starten Sie "DangerFromTheDeep_Debug" (die
+   Debug-Version). Oeffnen Sie danach die Textdatei "T:dangerdeep_startup.log", um
+   die genaue Ursache (z. B. Grafikspeicher voll oder fehlende Hardware-Erweiterungen)
+   einzusehen.
 
 3. SOUND-PROBLEME:
    Stellen Sie sicher, dass in den AmigaOS-Audioeinstellungen (AHI) eine gueltige

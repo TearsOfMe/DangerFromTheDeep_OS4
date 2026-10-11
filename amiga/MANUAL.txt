@@ -42,8 +42,8 @@ TABLE OF CONTENTS:
    (e.g., "Work:Games/DangerFromTheDeep" or "DH1:Games/DangerFromTheDeep").
 2. Open the drawer on Workbench.
 3. Start the game by double-clicking one of the program icons:
-   - "dangerdeep_mesa_fast" (recommended for regular gameplay)
-   - or "dangerdeep_mesa" (for troubleshooting with detailed log file).
+   - "DangerFromTheDeep" (recommended for regular gameplay)
+   - or "DangerFromTheDeep_Debug" (for troubleshooting with detailed log file).
 
 NOTE ON MESA LIBRARY:
 The "libs/" subdirectory contains the required "mesa.library". If your system
@@ -56,18 +56,18 @@ copy this file there if needed.
 ================================================================================
 This archive includes two specialized Mesa binaries:
 
-A) "dangerdeep_mesa_fast" (WITHOUT DEBUG - RECOMMENDED FOR REGULAR PLAY)
-   ---------------------------------------------------------------------
+A) "DangerFromTheDeep" (WITHOUT DEBUG - RECOMMENDED FOR REGULAR PLAY)
+   ------------------------------------------------------------------
    - Maximum performance: All CPU and compiler optimizations (-O3, AltiVec/VMX
      acceleration for PowerPC) are active.
-   - Zero logging overhead: Verbose debug disk logging to "dftd_startup.log"
-     during gameplay is disabled.
+   - Zero logging overhead: All debug console and file logging is completely
+     disabled (no console popups, no file writes).
    - Delivers the highest frame rates (FPS) in the 3D ocean and on the map.
 
-B) "dangerdeep_mesa" (WITH DEBUG - FOR ANALYSIS & DIAGNOSTICS)
-   -----------------------------------------------------------
+B) "DangerFromTheDeep_Debug" (WITH DEBUG - FOR ANALYSIS & DIAGNOSTICS)
+   -------------------------------------------------------------------
    - Comprehensive logging: Writes detailed status and initialization messages
-     to "PROGDIR:dftd_startup.log".
+     to "T:dangerdeep_startup.log".
    - Extended diagnostics: In case of unexpected conditions or missing files,
      function call traces and stack information are captured.
    - Ideal for diagnosing graphics driver or sound configuration issues.
@@ -186,11 +186,11 @@ SAVING & LOADING:
 7. GRAPHICS SETTINGS & PERFORMANCE
 ================================================================================
 - Command line options via Amiga Shell:
-  dangerdeep_mesa_fast --res 1024*768       (Standard 4:3 resolution, recommended)
-  dangerdeep_mesa_fast --res 1280*720       (Widescreen 720p)
-  dangerdeep_mesa_fast --nofullscreen       (Windowed mode on Workbench)
-  dangerdeep_mesa_fast --nosound            (Run without sound)
-  dangerdeep_mesa_fast --maxfps 60          (Limit frame rate to 60 FPS)
+  DangerFromTheDeep --res 1024*768       (Standard 4:3 resolution, recommended)
+  DangerFromTheDeep --res 1280*720       (Widescreen 720p)
+  DangerFromTheDeep --nofullscreen       (Windowed mode on Workbench)
+  DangerFromTheDeep --nosound            (Run without sound)
+  DangerFromTheDeep --maxfps 60          (Limit frame rate to 60 FPS)
 
 - In the in-game options menu, water reflections, spray particle effects,
   and terrain mesh detail can be adjusted for optimal performance.
@@ -205,9 +205,9 @@ SAVING & LOADING:
    in the "libs/" directory.
 
 2. CHECKING THE LOG FILE:
-   If the game terminates unexpectedly, launch "dangerdeep_mesa" (the debug
-   version). Then inspect "dftd_startup.log" in the game directory to see the
-   exact cause (e.g. video memory exhaustion or missing assets).
+   If the game terminates unexpectedly, launch "DangerFromTheDeep_Debug" (the debug
+   version). Then inspect "T:dangerdeep_startup.log" to see the exact cause
+   (e.g. video memory exhaustion or missing assets).
 
 3. AUDIO ISSUES:
    Verify that AmigaOS audio preferences (AHI) have a valid sound unit

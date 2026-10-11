@@ -351,7 +351,11 @@ void sub_torpedo_display::enter(bool is_day) {
         log_debug("loading '" << get_data_dir() + data_file().get_rel_path(pl->get_specfilename()) + pl->get_torpedomanage_img_name());
         subtopsideview = std::make_unique<image>(get_data_dir() + data_file().get_rel_path(pl->get_specfilename()) + pl->get_torpedomanage_img_name());
     } catch (std::exception &e) {
+#if !defined(DFTD_NO_DEBUG_LOG)
         std::cout << "ERROR: " << e.what() << "\n";
+#else
+        (void)e;
+#endif
     } catch (...) {
     }
     pointer_seconds.set("tmanage_seconds_pointer.png", 863, 524, 868, 621);

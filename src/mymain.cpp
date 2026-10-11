@@ -47,6 +47,12 @@ using namespace std;
 #include <cstring>
 #include <cstdlib>
 
+#if defined(DFTD_NO_DEBUG_LOG)
+void dftd_set_debug_log(bool) {}
+void dftd_set_in_game_loop(bool) {}
+bool dftd_is_debug_log_enabled() { return false; }
+void dftd_startup_log(const char *, ...) {}
+#else
 static bool s_debug_log_enabled = false;
 static bool s_in_game_loop = false;
 
@@ -65,19 +71,6 @@ bool dftd_is_debug_log_enabled() {
 void dftd_startup_log(const char *fmt, ...) {
     if (!fmt) return;
 
-#if defined(DFTD_NO_DEBUG_LOG)
-    bool is_critical = (fmt[0] == 'F' && strncmp(fmt, "FATAL", 5) == 0) ||
-                       (fmt[0] == 'C' && strncmp(fmt, "CRITICAL", 8) == 0) ||
-                       (fmt[0] == 'S' && strncmp(fmt, "Stack trace", 11) == 0) ||
-                       (fmt[0] == ' ' && fmt[1] == ' ' && fmt[2] == '[') ||
-                       (strncmp(fmt, "game__exec: fps", 15) == 0) ||
-                       (strncmp(fmt, "CPU Vector Unit", 15) == 0) ||
-                       (strncmp(fmt, "[CPU", 4) == 0) ||
-                       (strncmp(fmt, "=== Danger from the Deep", 24) == 0);
-    if (!is_critical) {
-        return;
-    }
-#else
     if (!s_debug_log_enabled) {
         bool is_critical = (fmt[0] == 'F' && strncmp(fmt, "FATAL", 5) == 0) ||
                            (fmt[0] == 'C' && strncmp(fmt, "CRITICAL", 8) == 0) ||
@@ -90,7 +83,6 @@ void dftd_startup_log(const char *fmt, ...) {
             return;
         }
     }
-#endif
 
     static FILE *logfile = nullptr;
     static bool tried_open = false;
@@ -120,10 +112,12 @@ void dftd_startup_log(const char *fmt, ...) {
 #endif
     }
 }
+#endif
 
 int mymain(list<string> &args);
 
 int call_mymain(list<string> &args) {
+#if !defined(DFTD_NO_DEBUG_LOG)
     for (const auto &arg : args) {
         if (arg == "--debug" || arg == "-debug") {
             s_debug_log_enabled = true;
@@ -133,6 +127,7 @@ int call_mymain(list<string> &args) {
     if (env_debug && (strcmp(env_debug, "1") == 0 || strcmp(env_debug, "true") == 0)) {
         s_debug_log_enabled = true;
     }
+#endif
 
     install_segfault_handler();
     dftd_startup_log("=== Danger from the Deep starting ===");
@@ -166,19 +161,24 @@ int call_mymain(list<string> &args) {
         result = qe.retval;
     } catch (const std::exception& e) {
         dftd_startup_log("CRITICAL EXCEPTION: %s", e.what());
+#if !defined(DFTD_NO_DEBUG_LOG)
         std::cout << "CRITICAL ERROR: Caught exception: " << e.what() << std::endl;
         std::cerr << "CRITICAL ERROR: Caught exception: " << e.what() << std::endl;
         printf("CRITICAL ERROR: Caught exception: %s\n", e.what());
+#endif
         log_warning("Caught exception: " << e.what());
         result = -1;
     } catch (...) {
         dftd_startup_log("CRITICAL UNKNOWN EXCEPTION");
+#if !defined(DFTD_NO_DEBUG_LOG)
         std::cout << "CRITICAL ERROR: Caught unknown exception" << std::endl;
         std::cerr << "CRITICAL ERROR: Caught unknown exception" << std::endl;
         printf("CRITICAL ERROR: Caught unknown exception\n");
+#endif
         result = -2;
     }
 
+#if !defined(DFTD_NO_DEBUG_LOG)
     string log_file =
 #if defined(__amigaos4__)
         "PROGDIR:debug.log";
@@ -191,12 +191,15 @@ int call_mymain(list<string> &args) {
     unlink(log_file.c_str());
     std::ofstream f(log_file.c_str());
     log::instance().write(f, log::LOG_SYSINFO);
+#endif
     log::destroy_instance();
+#if !defined(DFTD_NO_DEBUG_LOG)
     std::cout.flush();
     std::cerr.flush();
     fflush(stdout);
     fflush(stderr);
     dftd_startup_log("=== Danger from the Deep exiting (code %d) ===", result);
+#endif
     return result;
 }
 

@@ -47,8 +47,8 @@ Ported and optimized for **AmigaOS 4.1** (PowerPC) by **TearsOfMe**:
 
 | Executable | Description | Recommended For |
 | :--- | :--- | :--- |
-| `dangerdeep_mesa_fast` | Highest performance release build (-O3, AltiVec enabled, file logging overhead disabled) | Daily gameplay |
-| `dangerdeep_mesa` | Diagnostic build with verbose startup and in-game logging to `PROGDIR:dftd_startup.log` | Troubleshooting & debugging |
+| `DangerFromTheDeep` | Highest performance release build (-O3, AltiVec enabled, zero console/file debug overhead) | Daily gameplay |
+| `DangerFromTheDeep_Debug` | Diagnostic build with verbose startup and in-game logging to `T:dangerdeep_startup.log` | Troubleshooting & debugging |
 
 ---
 
@@ -163,8 +163,8 @@ Portiert und optimiert für **AmigaOS 4.1** (PowerPC) von **TearsOfMe**:
 
 | Programm | Beschreibung | Empfohlen für |
 | :--- | :--- | :--- |
-| `dangerdeep_mesa_fast` | Maximale Performance (-O3, AltiVec aktiv, Logging-Overhead deaktiviert) | Normales Spielen |
-| `dangerdeep_mesa` | Diagnose-Version mit ausführlichem Logging in `PROGDIR:dftd_startup.log` | Fehlersuche & Treiberprüfung |
+| `DangerFromTheDeep` | Maximale Performance (-O3, AltiVec aktiv, alle Debug-/Log-Ausgaben deaktiviert) | Normales Spielen |
+| `DangerFromTheDeep_Debug` | Diagnose-Version mit ausführlichem Logging in `T:dangerdeep_startup.log` | Fehlersuche & Treiberprüfung |
 
 ---
 

@@ -26,13 +26,15 @@ bool cpu_has_altivec() {
             GCIT_VectorUnit, &vector_unit,
             TAG_DONE);
 
+#if !defined(DFTD_NO_DEBUG_LOG)
         printf("\n======================================================\n");
         printf("[CPU-DETECT] AmigaOS ExecSG CPU Info:\n");
         printf("[CPU-DETECT]   CPU Model: %s\n", model_str ? (const char *)model_str : "Unknown PPC");
         printf("[CPU-DETECT]   VectorUnit: %u (ALTIVEC constant: %u)\n",
                (unsigned)vector_unit, (unsigned)VECTORTYPE_ALTIVEC);
+#endif
 
-        if (vector_unit == VECTORTYPE_ALTIVEC) {
+        if (vector_unit == (uint32)VECTORTYPE_ALTIVEC) {
             has = true;
             detected_via = "AmigaOS4 ExecSG GCIT_VectorUnit";
         }
@@ -41,13 +43,16 @@ bool cpu_has_altivec() {
 
     // Fallback or secondary verification via SDL2
     SDL_bool sdl_vec = SDL_HasAltiVec();
-    printf("[CPU-DETECT] SDL_HasAltiVec() reported: %s\n", sdl_vec == SDL_TRUE ? "YES" : "NO");
+#if !defined(DFTD_NO_DEBUG_LOG)
+    printf("[CPU-DETECT] SDL_HasAltiVec() reported: %s\n", sdl_vec ? "YES" : "NO");
+#endif
 
-    if (!has && sdl_vec == SDL_TRUE) {
+    if (!has && sdl_vec) {
         has = true;
         detected_via = "SDL_HasAltiVec()";
     }
 
+#if !defined(DFTD_NO_DEBUG_LOG)
     if (has) {
         printf("[CPU-DETECT] RESULT: AltiVec / VMX detected via %s!\n", detected_via);
         printf("[CPU-DETECT] -> Hardware-accelerated SIMD routines ACTIVE.\n");
@@ -57,6 +62,7 @@ bool cpu_has_altivec() {
     }
     printf("======================================================\n\n");
     fflush(stdout);
+#endif
 
     s_cached = has ? 1 : 0;
     return has;

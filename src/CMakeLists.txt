@@ -104,6 +104,8 @@ set(DFTDMEDIASOURCES
 	${DFTD_AUDIO_BACKEND}
 	${DFTD_DISPLAY_BACKEND}
 	${DFTD_IMAGE_LOADER}
+	altivec_detect.cpp
+	altivec_math.cpp
 	bv_tree.cpp
 	error.cpp
 	font.cpp
@@ -306,6 +308,13 @@ if(USE_UNITY STREQUAL "ON")
 endif(USE_UNITY STREQUAL "ON")
 
 add_executable(dangerdeep ${MAIN_SRC} ${INC})
+
+# AltiVec/VMX intrinsics need -maltivec (only the SIMD translation units, so the
+# rest of the program still runs on CPUs without a vector unit).
+if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+	set_source_files_properties(altivec_math.cpp PROPERTIES COMPILE_FLAGS "-maltivec -mabi=altivec")
+	set_source_files_properties(altivec_math.cpp altivec_detect.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+endif()
 
 # Precompiled Headers: acelera compilación pre-compilando headers pesados usados frecuentemente
 # Requiere CMake 3.16+

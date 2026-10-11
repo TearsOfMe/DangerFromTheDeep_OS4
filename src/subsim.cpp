@@ -438,6 +438,7 @@ game::run_state game__exec(game &gm, user_interface &ui) {
             dftd_startup_log("game__exec: loop frame %u, ui.display() complete.", frames);
             ++frames;
 
+#if !defined(DFTD_NO_DEBUG_LOG)
             // record fps
             if (totaltime - fpstime >= measuretime) {
                 fpstime = totaltime;
@@ -448,6 +449,7 @@ game::run_state game__exec(game &gm, user_interface &ui) {
                                  (frames - lastframes) / measuretime, refl_ms, foam_ms, wat_ms, terr_ms);
                 lastframes = frames;
             }
+#endif
 
             dftd_startup_log("game__exec: loop frame %u, swapping buffers...", frames - 1);
             sys().swap_buffers();
@@ -2101,9 +2103,9 @@ int mymain(list<string> &args) {
                          << warnings;
 
 #ifdef __amigaos4__
-            dftd_startup_log("GL tests warnings/errors:\n%s", str_problems.str().c_str());
+#if !defined(DFTD_NO_DEBUG_LOG)
             std::cout << str_problems.str() << std::endl;
-            log_warning("GL tests reported errors on AmigaOS 4, attempting to continue anyway...");
+#endif
 #else
             glClearColor(0, 0, 1, 0);
             glClear(GL_COLOR_BUFFER_BIT);

@@ -206,8 +206,8 @@ void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, 
                     ++dbl;
                 }
             }
-            if (dbl > 0)
-                cout << "erased " << dbl << " double points!, seg " << x << "," << y << "\n";
+            // if (dbl > 0)
+            //     cout << "erased " << dbl << " double points!, seg " << x << "," << y << "\n";
             // remove last point that coincides with first point for islands.
             if (ce.points.back().square_distance(ce.points.front()) < 0.1f) {
                 ce.points.pop_back();
@@ -284,12 +284,14 @@ void coastsegment::segcl::print() const {
       << "\nbeginborder: " << beginborder << " endborder " << endborder
       << "\ncyclic? " << cyclic << " next: " << next << "\n";
     */
+#ifdef DEBUG
     cout << "segcl:\n"
          << points.size() << " points, beginpos " << beginpos << " beginb "
          << " beginb " << ((beginpos == -1) ? -1 : beginpos / int(SEGSCALE)) << " endpos "
          << endpos << " endb " << ((endpos == -1) ? -1 : endpos / int(SEGSCALE)) << " next "
          << next << " cyclic? " << cyclic << " nrpts " << points.size() << " 1st pt "
          << points.front() << ",back " << points.back() << "\n";
+#endif
 }
 
 void coastsegment::compute_successor_for_cl(unsigned cln) {

@@ -68,7 +68,13 @@ class coastsegment {
         std::vector<unsigned> indices;
         void push_back_point(const vector2 &p); // avoids double points.
     };
+    struct mesh_cache {
+        std::vector<vector2f> verts;
+        std::vector<vector2f> texcoords;
+    };
+    mutable mesh_cache cached_mesh;
     mutable int pointcachedetail;
+    mutable bool cache_generated;
     mutable std::vector<cacheentry> pointcache;
     // check if cache needs to be (re)generated, and do that
     void generate_point_cache(const class coastmap &cm, int x, int y, int detail) const;
@@ -77,7 +83,7 @@ class coastsegment {
 
     void push_back_segcl(const segcl &scl); // avoids segcls with < 2 points.
 
-    coastsegment(/*unsigned topon, const std::vector<float>& topod*/) : type(0), /*topo(topon, topod),*/ atlanticmap(0), pointcachedetail(0) {}
+    coastsegment(/*unsigned topon, const std::vector<float>& topod*/) : type(0), /*topo(topon, topod),*/ atlanticmap(0), pointcachedetail(0), cache_generated(false) {}
 
     void draw_as_map(const class coastmap &cm, int x, int y, int detail = 0) const;
 };

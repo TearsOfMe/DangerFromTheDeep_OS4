@@ -31,19 +31,19 @@ REQUIREMENTS:
 - Embedded stack cookie: 4 MB ($STACK: 4194304)
 
 INCLUDED EXECUTABLES:
-1. dangerdeep_mesa_fast  (WITHOUT DEBUG - RECOMMENDED FOR REGULAR GAMING)
+1. DangerFromTheDeep        (WITHOUT DEBUG - RECOMMENDED FOR REGULAR GAMING)
    - Highest performance build with -O3 and AltiVec/VMX optimizations.
-   - Debug logging overhead disabled for maximum frame rate.
+   - All debug logging overhead disabled (zero console popups, no file writes).
    - Recommended for daily play.
 
-2. dangerdeep_mesa       (WITH DEBUG - FOR LOGGING & TROUBLESHOOTING)
-   - Full diagnostic logging enabled.
-   - Writes detailed startup and game status to "PROGDIR:dftd_startup.log".
+2. DangerFromTheDeep_Debug  (WITH DEBUG - FOR LOGGING & TROUBLESHOOTING)
+   - Diagnostic build with logging enabled.
+   - Writes detailed startup and game status to "T:dangerdeep_startup.log".
    - Useful for testing graphics drivers or reporting issues.
 
 INSTALLATION:
 Extract the archive to any location on your hard drive (e.g. Work:Games/) and
-double-click the "dangerdeep_mesa_fast" icon.
+double-click the "DangerFromTheDeep" icon.
 A compatible "mesa.library" is provided in the "libs/" subdirectory for systems
 that require it.
 
@@ -98,18 +98,19 @@ SYSTEMVORAUSSETZUNGEN:
 - Eingebetteter Stack-Cookie: 4 MB ($STACK: 4194304)
 
 ENTHALTENE PROGRAMMVERSIONEN:
-1. dangerdeep_mesa_fast  (OHNE DEBUG - EMPFOHLEN FUER REGULAERES SPIELEN)
+1. DangerFromTheDeep        (OHNE DEBUG - EMPFOHLEN FUER REGULAERES SPIELEN)
    - Maximale Performance durch -O3 und AltiVec/VMX-Vektorbeschleunigung.
    - Kein Datei-Logging-Overhead fuer maximale Bildrate (FPS).
+   - Alle Debug- und Konsolenausgaben komplett deaktiviert.
    - Empfohlen fuer den normalen Spieleinsatz.
 
-2. dangerdeep_mesa       (MIT DEBUG - FUER DIAGNOSE & FEHLERSUCHE)
-   - Vollstaendiges Logging in "PROGDIR:dftd_startup.log".
+2. DangerFromTheDeep_Debug  (MIT DEBUG - FUER DIAGNOSE & FEHLERSUCHE)
+   - Vollstaendiges Logging in "T:dangerdeep_startup.log".
    - Nuetzlich bei der Treiberanalyse oder Fehlerberichten.
 
 INSTALLATION:
 Entpacken Sie das Archiv an einen beliebigen Ort (z. B. Work:Games/) und
-starten Sie das Spiel per Doppelklick auf "dangerdeep_mesa_fast".
+starten Sie das Spiel per Doppelklick auf das Icon "DangerFromTheDeep".
 Eine kompatible "mesa.library" liegt im Unterordner "libs/" bei.
 
 TASTATURSTEUERUNG (KURZUEBERSICHT):

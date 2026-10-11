@@ -485,7 +485,7 @@ void texture::init(const vector<Uint8> &data, bool makenormalmap, float detailh)
             const vector<Uint8> *gdat = &data;
             for (unsigned level = 1, w = gl_width / 2, h = gl_height / 2;
                  w > 0 && h > 0; w /= 2, h /= 2) {
-                cout << "level " << level << " w " << w << " h " << h << "\n";
+                // cout << "level " << level << " w " << w << " h " << h << "\n";
                 curlvl = scale_half(*gdat, w, h, 1);
                 gdat = &curlvl;
                 // fixme: must detailh also get halfed here? yes...

@@ -113,7 +113,7 @@ system::system(const parameters &params_) : params(params_),
     display_init_video();
     int vmaj, vmin, vpat;
     display_get_version(&vmaj, &vmin, &vpat);
-    cout << "SDL " << vmaj << "." << vmin << "." << vpat << endl;
+    // cout << "SDL " << vmaj << "." << vmin << "." << vpat << endl;
 
     //	if (params.window_caption.length() > 0) { // Quesiont earlyer was answered.
     //		SDL_WM_SetCaption(params.window_caption.c_str(), NULL);
