@@ -479,7 +479,8 @@ void run_game(std::unique_ptr<game> gm) {
     auto gametheme = std::make_unique<widget::theme>("widgetelements_game.png", "widgeticons_game.png",
                                                      font_vtremington12, color(182, 146, 137), color(240, 217, 127), color(64, 64, 64));
     dftd_startup_log("run_game: Starting game...");
-    reset_loading_screen();
+    bool is_de = (texts::get_language_code() == "de");
+    reset_loading_screen(is_de ? "Lade Feindfahrt..." : "Loading mission...", 10);
     // embrace user interface generation with right theme set!
     std::unique_ptr<widget::theme> tmp = widget::replace_theme(std::move(gametheme));
     dftd_startup_log("run_game: Creating user interface...");
@@ -2078,12 +2079,15 @@ int mymain(list<string> &args) {
     sys().set_res_2d(1024, 768);
     sys().set_max_fps(maxfps);
     font_arial = &sys().register_font(get_font_dir(), "font_arial");
-    reset_loading_screen();
+    bool is_de = (texts::get_language_code() == "de");
+    reset_loading_screen(is_de ? "Initialisiere Spiel..." : "Initializing game...", 8);
+    set_loading_progress(0.05f, is_de ? "Lade Schriftarten..." : "Loading fonts...");
     font_jphsl = &sys().register_font(get_font_dir(), "font_jphsl");
     font_vtremington10 = &sys().register_font(get_font_dir(), "font_vtremington10");
     font_vtremington12 = &sys().register_font(get_font_dir(), "font_vtremington12");
     font_typenr16 = &sys().register_font(get_font_dir(), "font_typenr16");
     widget::set_image_cache(&(imagecache()));
+    set_loading_progress(0.20f, is_de ? "Prüfe 3D-Grafikfunktionen..." : "Checking 3D graphics...");
 
     // --------------------------------------------------------------------------------
     // check for shader/glsl support
@@ -2158,6 +2162,8 @@ int mymain(list<string> &args) {
     log_info("Copyright (C) 2003-2011  Thorsten Jordan, Luis Barrancos and others.");
     log_info("Version " << get_program_version());
 
+    set_loading_progress(0.40f, is_de ? "Initialisiere Soundsystem..." : "Initializing sound system...");
+
     GLfloat lambient[4] = {0.1, 0.1, 0.1, 1};
     GLfloat ldiffuse[4] = {1, 1, 1, 1};
     GLfloat lposition[4] = {0, 0, 1, 0};
@@ -2180,6 +2186,7 @@ int mymain(list<string> &args) {
 #endif
 
     music::instance().start();
+    set_loading_progress(0.55f, is_de ? "Lade Musikdaten..." : "Loading soundtrack...");
     music::instance().append_track("ImInTheMood.ogg");
     music::instance().append_track("Betty_Roche-Trouble_Trouble.ogg");
     music::instance().append_track("theme.ogg");
@@ -2189,7 +2196,7 @@ int mymain(list<string> &args) {
     music::instance().append_track("loopable_seasurface.ogg");
     music::instance().append_track("loopable_seasurface_badweather.ogg");
     music::instance().append_track("Auf_Feindfahrt.ogg");
-    add_loading_screen("Music list loaded");
+    set_loading_progress(0.70f, is_de ? "Lade Benutzeroberfläche..." : "Loading user interface...");
     // music::instance().set_playback_mode(music::PBM_SHUFFLE_TRACK);
     music::instance().play();
 
@@ -2201,6 +2208,8 @@ int mymain(list<string> &args) {
 
     auto metalbackground = std::make_unique<texture>(get_image_dir() + "metalbackground.jpg");
     sys().draw_console_with(font_arial, metalbackground.get());
+
+    set_loading_progress(0.85f, is_de ? "Lade Spielstände & Bestenliste..." : "Loading highscores...");
 
     // try to make directories if they do not exist
     try {
@@ -2231,6 +2240,8 @@ int mymain(list<string> &args) {
         highscorelist().save(highscoredirectory + HSL_CAREER_NAME);
     hsl_mission = highscorelist(highscoredirectory + HSL_MISSION_NAME);
     hsl_career = highscorelist(highscoredirectory + HSL_CAREER_NAME);
+
+    set_loading_progress(1.00f, is_de ? "Bereit!" : "Ready!");
 
     // check if there was a mission given at the command line, or editor more etc.
     if (runeditor) {

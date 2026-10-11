@@ -107,8 +107,9 @@ extern class font *font_arial, *font_jphsl, *font_vtremington10,
     *font_vtremington12, *font_typenr16;
 
 // display loading progress
-void reset_loading_screen();
-void add_loading_screen(const std::string &msg);
+void reset_loading_screen(const std::string &initial_msg = "", int expected_steps = 10);
+void add_loading_screen(const std::string &msg, float progress = -1.0f);
+void set_loading_progress(float progress, const std::string &msg = "");
 
 // transform time in seconds to 24h time of clock string (takes remainder of 86400 seconds first = 1 day)
 std::string get_time_string(double tm);

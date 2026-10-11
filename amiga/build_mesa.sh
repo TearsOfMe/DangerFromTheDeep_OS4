@@ -33,7 +33,7 @@ ppc-amigaos-strip -R.comment -R.note DangerFromTheDeep_Debug
 # 2. Build DangerFromTheDeep (release, all debug logging disabled)
 /opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
   -Winvalid-pch -include /opt/code/build_os4/src/CMakeFiles/dangerdeep.dir/cmake_pch.hxx \
-  -I/opt/code/src -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
+  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
   -I/opt/code/third_party/build_fftw/include \
   -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
   -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
@@ -42,7 +42,7 @@ ppc-amigaos-strip -R.comment -R.note DangerFromTheDeep_Debug
   -o CMakeFiles/dangerdeep.dir/subsim_release.cpp.o
 
 /opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
-  -I/opt/code/src -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
+  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
   -I/opt/code/third_party/build_fftw/include \
   -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
   -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
@@ -52,7 +52,7 @@ ppc-amigaos-strip -R.comment -R.note DangerFromTheDeep_Debug
 
 /opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
   -Winvalid-pch -include /opt/code/build_os4/src/CMakeFiles/dangerdeep.dir/cmake_pch.hxx \
-  -I/opt/code/src -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
+  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
   -I/opt/code/third_party/build_fftw/include \
   -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
   -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
@@ -60,9 +60,20 @@ ppc-amigaos-strip -R.comment -R.note DangerFromTheDeep_Debug
   -c /opt/code/src/sub_torpedo_display.cpp \
   -o CMakeFiles/dangerdeep.dir/sub_torpedo_display_release.cpp.o
 
+/opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
+  -Winvalid-pch -include /opt/code/build_os4/src/CMakeFiles/dangerdeep.dir/cmake_pch.hxx \
+  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
+  -I/opt/code/third_party/build_fftw/include \
+  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
+  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
+  -I/opt/code/cmake/gl4es_include \
+  -c /opt/code/src/global_data.cpp \
+  -o CMakeFiles/dangerdeep.dir/global_data_release.cpp.o
+
 sed -e "s/CMakeFiles\/dangerdeep\.dir\/subsim\.cpp\.o/CMakeFiles\/dangerdeep\.dir\/subsim_release\.cpp\.o/g" \
     -e "s/CMakeFiles\/dangerdeep\.dir\/altivec_detect\.cpp\.o/CMakeFiles\/dangerdeep\.dir\/altivec_detect_release\.cpp\.o/g" \
     -e "s/CMakeFiles\/dangerdeep\.dir\/sub_torpedo_display\.cpp\.o/CMakeFiles\/dangerdeep\.dir\/sub_torpedo_display_release\.cpp\.o/g" \
+    -e "s/CMakeFiles\/dangerdeep\.dir\/global_data\.cpp\.o/CMakeFiles\/dangerdeep\.dir\/global_data_release\.cpp\.o/g" \
     -e "s/-o dangerdeep_mesa/-o DangerFromTheDeep/g" \
     link_mesa.sh > link_release.sh
 chmod +x link_release.sh
