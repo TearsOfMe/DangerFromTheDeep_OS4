@@ -100,11 +100,11 @@ directory::directory(const string &filename)
     dir = opendir(sanitized.c_str());
     if (!dir)
         dir = opendir(filename.c_str());
-    if (!dir)
-        throw error(string("Can't open directory ") + filename);
 }
 
 string directory::read() {
+    if (!dir)
+        return string();
     struct dirent *dir_entry = readdir(dir);
     if (dir_entry) {
         return string(dir_entry->d_name);
@@ -113,7 +113,8 @@ string directory::read() {
 }
 
 directory::~directory() {
-    closedir(dir);
+    if (dir)
+        closedir(dir);
 }
 
 bool make_dir(const string &dirname) {

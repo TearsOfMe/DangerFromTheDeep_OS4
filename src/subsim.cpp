@@ -2001,6 +2001,24 @@ int mymain(list<string> &args) {
     // randomize (generador global usado por rnd() en global_data.h)
     seed_global_rnd(static_cast<unsigned>(time(nullptr)));
 
+    // Check if crucial game assets exist in the data directory
+    string check_datadir = get_data_dir();
+    if (check_datadir.empty() || check_datadir[check_datadir.length() - 1] != '/') {
+        check_datadir += "/";
+    }
+    bool datadir_valid = is_directory(check_datadir) &&
+                         is_directory(check_datadir + "objects") &&
+                         is_directory(check_datadir + "fonts") &&
+                         is_directory(check_datadir + "textures");
+    if (!datadir_valid) {
+        dftd_startup_log("ERROR: Crucial game data missing in '%s'!", check_datadir.c_str());
+        dftd_startup_log("Please ensure the full data package (DangerFromTheDeep_OS4.lha) is installed into the game directory.");
+        string err_msg = "Crucial game data missing in:\n" + check_datadir +
+                         "\n\nPlease ensure the full data package\n(DangerFromTheDeep_OS4.lha) is installed into the game directory.";
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Danger from the Deep Error", err_msg.c_str(), NULL);
+        return -1;
+    }
+
     // read data files
     dftd_startup_log("Scanning and reading data files from %s...", get_data_dir().c_str());
     data_file();

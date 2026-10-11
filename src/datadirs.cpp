@@ -71,19 +71,26 @@ data_file_handler::data_file_handler() {
 
 static const std::string data_file_ext = ".data";
 void data_file_handler::parse_for_data_files(std::string dir, std::list<std::string> &idlist) {
-    directory d(get_data_dir() + dir);
-    for (std::string f = d.read(); !f.empty(); f = d.read()) {
-        if (f[0] == '.' || f == "CVS") {
-            // avoid . and .. entries, as well as hidden files, and CVS directories as well
-            continue;
-        } else if (is_directory(get_data_dir() + dir + f)) {
-            parse_for_data_files(dir + f + "/", idlist);
-        } else if (f.length() > data_file_ext.length() && f.substr(f.length() - data_file_ext.length()) == data_file_ext) {
-            std::string id = f.substr(0, f.length() - data_file_ext.length());
-            // 			log_info("found file " << dir << " for id " << id);
-            data_files[id] = dir;
-            idlist.push_back(id);
+    std::string fullpath = get_data_dir() + dir;
+    if (!is_directory(fullpath)) {
+        return;
+    }
+    try {
+        directory d(fullpath);
+        for (std::string f = d.read(); !f.empty(); f = d.read()) {
+            if (f[0] == '.' || f == "CVS") {
+                // avoid . and .. entries, as well as hidden files, and CVS directories as well
+                continue;
+            } else if (is_directory(fullpath + f)) {
+                parse_for_data_files(dir + f + "/", idlist);
+            } else if (f.length() > data_file_ext.length() && f.substr(f.length() - data_file_ext.length()) == data_file_ext) {
+                std::string id = f.substr(0, f.length() - data_file_ext.length());
+                // 			log_info("found file " << dir << " for id " << id);
+                data_files[id] = dir;
+                idlist.push_back(id);
+            }
         }
+    } catch (...) {
     }
 }
 
