@@ -1477,7 +1477,7 @@ void menu_opt_video() {
     widget_button *resolution = new widget_func_button<void (*)()>(&menu_resolution, x, y + 60, wd, 40, texts::get(106));
     widget_checkbox *vsync = new widget_checkbox(right, y + 60, wd, 40, config.getb("vsync"), texts::get(720));
 
-    widget_slider *terrain_lod = new widget_slider(x, y + 120, wd, 80, texts::get(112), 3, 9, config.geti("terrain_detail"), 3);
+    widget_slider *terrain_lod = new widget_slider(x, y + 120, wd, 80, texts::get(112), 3, 9, config.geti("terrain_detail"), 1);
     widget_checkbox *tex_compress = new widget_checkbox(right, y + 120, wd, 40, config.getb("use_compressed_textures"), texts::get(721));
 
     widget_list *wfx_quality = new widget_list(x + (wd / 2), y + 220, wd / 2, 80);

@@ -667,7 +667,7 @@ void widget::draw_rect(int x, int y, int w, int h, bool out) {
 }
 
 void widget::draw_line(int x1, int y1, int x2, int y2) {
-    primitives::line(vector2f(x1, y1), vector2f(x2, y2), globaltheme->textcol);
+    primitives::line(vector2f(x1, y1), vector2f(x2, y2), globaltheme->textcol).render();
 }
 
 void widget::draw_area(int x, int y, int w, int h, bool out) const {
@@ -684,7 +684,7 @@ void widget::draw_area(int x, int y, int w, int h, bool out) const {
 }
 
 void widget::draw_area_col(int x, int y, int w, int h, bool out, color c) const {
-    primitives::quad(vector2f(x, y + h), vector2f(x + w, y), c);
+    primitives::quad(vector2f(x, y + h), vector2f(x + w, y), c).render();
     draw_frame(x, y, w, h, out);
 }
 
@@ -1645,79 +1645,119 @@ widget_slider::widget_slider(int x, int y, int w, int h, const string &text_,
 }
 
 void widget_slider::draw() const {
-    // draw sunken area that just has the sunken border height*2, so you see only borders.
-    // draw the slider as raised area with height of 8*border or so.
-    // draw vertical lines below the slider each n values, so that we have at least 32pix
-    // between each value or 16 or so.
-    // draw descriptions (min...maxval) every n pixels/positions, so that there is at
-    // least n pixel space between each description
-
-    // draw description if there is one
     color tcol = is_enabled() ? globaltheme->textcol : globaltheme->textdisabledcol;
-    unsigned h2 = globaltheme->myfont->get_height();
+    color valcol = is_enabled() ? globaltheme->textselectcol : globaltheme->textdisabledcol;
+    unsigned font_h = globaltheme->myfont->get_height();
     unsigned h0 = 0;
+
+    // Draw description and current value
     if (text.length() > 0) {
         globaltheme->myfont->print(pos.x, pos.y, text, tcol, true);
-        h0 = globaltheme->myfont->get_size(text).y;
+        int tw = globaltheme->myfont->get_size(text).x;
+        string cur_str = ": " + std::to_string(currvalue);
+        globaltheme->myfont->print(pos.x + tw, pos.y, cur_str, valcol, true);
+        h0 = font_h + 4;
     }
 
-    // draw slider bar
-    unsigned h1 = size.y - h0 - h2;
-    unsigned barh = globaltheme->frame[0]->get_height() * 2;
-    unsigned sliderw = h2;
-    unsigned baroff = h1 / 2 - barh;
-    draw_area(pos.x, pos.y + h0 + baroff, size.x, barh, false);
+    // Available height for track and knob
+    unsigned h1 = (size.y > static_cast<int>(h0 + font_h)) ? (size.y - h0 - font_h) : font_h;
+    int sliderw = std::max(22, static_cast<int>(font_h + 6));
+    int max_range = std::max(1, maxvalue - minvalue);
+    int offset = (size.x - sliderw) * (currvalue - minvalue) / max_range;
 
-    // draw marker texts and lines.
+    // Slider track (horizontal sunken groove)
+    int bar_h = 10;
+    int bar_y = pos.y + h0 + (h1 - bar_h) / 2;
+    draw_area_col(pos.x, bar_y, size.x, bar_h, false, color(30, 26, 24));
+
+    // Filled progress bar inside track up to knob center
+    int fill_w = offset + sliderw / 2;
+    if (fill_w > 4) {
+        color fill_col = is_enabled() ? color(180, 140, 75) : color(80, 70, 60);
+        primitives::quad(vector2f(pos.x + 2, bar_y + bar_h - 2), vector2f(pos.x + fill_w, bar_y + 2), fill_col).render();
+        primitives::line(vector2f(pos.x + 2, bar_y + 2), vector2f(pos.x + fill_w, bar_y + 2), color(235, 205, 140)).render();
+    }
+
+    // Marker ticks and numbers
     for (int i = minvalue; i <= maxvalue; i += descrstep) {
         ostringstream oss;
         oss << i;
         string vals = oss.str();
-        unsigned offset = (size.x - sliderw) * (i - minvalue) / (maxvalue - minvalue);
+        int tick_offset = (size.x - sliderw) * (i - minvalue) / max_range;
+        int tick_cx = pos.x + sliderw / 2 + tick_offset;
         int valw = globaltheme->myfont->get_size(vals).x;
-        globaltheme->myfont->print(pos.x + sliderw / 2 + offset - valw / 2, pos.y + h0 + h1, vals, tcol, true);
-        draw_line(pos.x + sliderw / 2 + offset, pos.y + h0 + baroff + barh, pos.x + sliderw / 2 + offset, pos.y + h0 + h1);
-        // last descriptions should be aligned right and printed, so maybe skip second last one.
+
+        bool is_current = (i == currvalue);
+        color mark_col = is_current ? globaltheme->textselectcol : tcol;
+
+        // Tick mark notch below the bar
+        primitives::line(vector2f(tick_cx, bar_y + bar_h + 1), vector2f(tick_cx, bar_y + bar_h + 6), mark_col).render();
+
+        // Marker value text
+        globaltheme->myfont->print(tick_cx - valw / 2, pos.y + h0 + h1 + 2, vals, mark_col, true);
+
         if (i < maxvalue && i + descrstep > maxvalue) {
             i = maxvalue - descrstep;
         }
     }
 
-    // draw slider knob
-    unsigned offset = (size.x - sliderw) * (currvalue - minvalue) / (maxvalue - minvalue);
-    draw_area_col(pos.x + offset, pos.y + h0, sliderw, h1 - barh, true, globaltheme->textdisabledcol);
-    draw_line(pos.x + sliderw / 2 + offset, pos.y + h0 + barh / 2, pos.x + sliderw / 2 + offset, pos.y + h0 + h1 - barh * 3 / 2);
+    // Slider knob (chunky 3D brass handle)
+    int knob_h = std::max(22, static_cast<int>(h1) - 4);
+    int knob_x = pos.x + offset;
+    int knob_y = pos.y + h0 + (h1 - knob_h) / 2;
+    bool hovered = is_enabled() && (mouseover == this);
+    color knob_col = is_enabled() ? (hovered ? color(245, 225, 160) : color(215, 185, 130)) : color(100, 90, 80);
+
+    draw_area_col(knob_x, knob_y, sliderw, knob_h, true, knob_col);
+
+    // Tactile vertical grip ridges on knob center
+    int cx = knob_x + sliderw / 2;
+    int gy1 = knob_y + 5;
+    int gy2 = knob_y + knob_h - 5;
+    primitives::line(vector2f(cx - 2, gy1), vector2f(cx - 2, gy2), color(80, 60, 40)).render();
+    primitives::line(vector2f(cx - 1, gy1), vector2f(cx - 1, gy2), color(255, 245, 210)).render();
+    primitives::line(vector2f(cx + 2, gy1), vector2f(cx + 2, gy2), color(80, 60, 40)).render();
+    primitives::line(vector2f(cx + 3, gy1), vector2f(cx + 3, gy2), color(255, 245, 210)).render();
 }
 
 void widget_slider::on_char(const key_sym &ks) {
-    // move with cursor
     int c = ks.sym;
     if (c == SDLK_LEFT && currvalue > minvalue) {
         --currvalue;
         on_change();
+        redraw();
     } else if (c == SDLK_RIGHT && currvalue < maxvalue) {
         ++currvalue;
         on_change();
+        redraw();
     }
     fire_key_event(ks);
 }
 
 void widget_slider::on_click(int mx, int my, int mb) {
-    // set slider...
     if (mb & MOUSE_BUTTON_LMASK) {
         int sliderpos = std::min(std::max(pos.x, mx), pos.x + size.x) - pos.x;
+        int old_val = currvalue;
         currvalue = (sliderpos * (maxvalue - minvalue) + size.x / 2) / size.x + minvalue;
-        on_change();
+        currvalue = std::clamp(currvalue, minvalue, maxvalue);
+        if (currvalue != old_val) {
+            on_change();
+            redraw();
+        }
     }
     fire_mouse_click_event(mx, my, mb);
 }
 
 void widget_slider::on_drag(int mx, int my, int rx, int ry, int mb) {
-    // move slider...
     if (mb & MOUSE_BUTTON_LMASK) {
         int sliderpos = std::min(std::max(pos.x, mx), pos.x + size.x) - pos.x;
+        int old_val = currvalue;
         currvalue = (sliderpos * (maxvalue - minvalue) + size.x / 2) / size.x + minvalue;
-        on_change();
+        currvalue = std::clamp(currvalue, minvalue, maxvalue);
+        if (currvalue != old_val) {
+            on_change();
+            redraw();
+        }
     }
     fire_mouse_drag_event(mx, my, rx, ry, mb);
 }
