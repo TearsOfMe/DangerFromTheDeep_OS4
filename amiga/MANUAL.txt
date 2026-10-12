@@ -150,11 +150,7 @@ MAIN MENU:
   * "Saved Game": Resume saved submarine patrols.
 - Mission Editor: Create custom naval scenarios.
 - Ships & Airplanes: 3D showcase of all historical ships, planes, and weapons.
-- Options: Language (English, German, French, etc.), graphic details, sound volume.
-
-LOADING PROGRESS:
-- During startup and when launching any mission, an animated progress bar
-  with percentage display and status messages indicates the current loading state.
+- Options: Language, graphic details, sound volume.
 
 SAVING & LOADING:
 - During gameplay, open the pause menu [Esc] to save your patrol.
@@ -197,8 +193,7 @@ SAVING & LOADING:
   DangerFromTheDeep --maxfps 60          (Limit frame rate to 60 FPS)
 
 - In the in-game options menu, water reflections, spray particle effects,
-  and terrain mesh detail (via the 3D brass slider with value scale from 3 to 9)
-  can be fine-tuned for optimal frame rates.
+  and terrain mesh detail can be adjusted for optimal performance.
 
 
 ================================================================================

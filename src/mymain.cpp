@@ -47,6 +47,17 @@ using namespace std;
 #include <cstring>
 #include <cstdlib>
 
+#if defined(__amigaos4__)
+#include <proto/exec.h>
+#include <dos/dos.h>
+#include <dos/dosextens.h>
+
+// Disable newlib's automatic CON: window creation when launched from Workbench
+extern "C" {
+    const char *__stdiowin = "NIL:";
+}
+#endif
+
 #if defined(DFTD_NO_DEBUG_LOG)
 void dftd_set_debug_log(bool) {}
 void dftd_set_in_game_loop(bool) {}
@@ -72,16 +83,7 @@ void dftd_startup_log(const char *fmt, ...) {
     if (!fmt) return;
 
     if (!s_debug_log_enabled) {
-        bool is_critical = (fmt[0] == 'F' && strncmp(fmt, "FATAL", 5) == 0) ||
-                           (fmt[0] == 'C' && strncmp(fmt, "CRITICAL", 8) == 0) ||
-                           (fmt[0] == 'S' && strncmp(fmt, "Stack trace", 11) == 0) ||
-                           (fmt[0] == ' ' && fmt[1] == ' ' && fmt[2] == '[') ||
-                           (strncmp(fmt, "game__exec: fps", 15) == 0) ||
-                           (strncmp(fmt, "CPU Vector Unit", 15) == 0) ||
-                           (strncmp(fmt, "[CPU", 4) == 0);
-        if (!is_critical && s_in_game_loop) {
-            return;
-        }
+        return;
     }
 
     static FILE *logfile = nullptr;
@@ -117,6 +119,24 @@ void dftd_startup_log(const char *fmt, ...) {
 int mymain(list<string> &args);
 
 int call_mymain(list<string> &args) {
+#if defined(__amigaos4__)
+    struct Task *self_task = IExec ? IExec->FindTask(NULL) : NULL;
+    struct Process *self_proc = (struct Process *)self_task;
+    if (self_proc && self_proc->pr_CLI == 0) {
+        // Launched from Workbench (no CLI attached):
+        // Redirect stdout and stderr to NIL: to prevent any Shell/CON: window from opening.
+        freopen("NIL:", "w", stdout);
+        freopen("NIL:", "w", stderr);
+    }
+#if !defined(DFTD_NO_DEBUG_LOG)
+    // For debug build: if executable name contains "Debug", auto-enable debug log!
+    if (self_proc && self_proc->pr_Task.tc_Node.ln_Name &&
+        strstr(self_proc->pr_Task.tc_Node.ln_Name, "Debug")) {
+        s_debug_log_enabled = true;
+    }
+#endif
+#endif
+
 #if !defined(DFTD_NO_DEBUG_LOG)
     for (const auto &arg : args) {
         if (arg == "--debug" || arg == "-debug") {

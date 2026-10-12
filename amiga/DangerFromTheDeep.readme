@@ -2,7 +2,7 @@ Short:        Open source WW2 German submarine simulation (Mesa 3D port)
 Author:       Thorsten Jordan, Luis Barrancos and others (AmigaOS 4 port by TearsOfMe)
 Uploader:     TearsOfMe
 Type:         game/sim
-Version:      0.3.900-mesa-r4
+Version:      0.3.900-mesa-r3
 Architecture: ppc-amigaos >= 4.1.0
 
 ================================================================================
@@ -21,21 +21,6 @@ celestial mechanics, convoy behavior, acoustic sensors, torpedo ballistics,
 damage control, and full 3D graphics.
 
 This package provides native, highly optimized AmigaOS 4.1 Mesa 3D builds.
-
-AMIGAOS 4.1 PORT HIGHLIGHTS & CHANGELOG (0.3.900-mesa-r4):
-- Graphical loading progress bar: Added animated loading bar with percentage
-  indicator and localized phase status to startup and mission loading screens.
-- In-game language selection: Added language switcher directly to Options menu,
-  with complete German translations for all video, audio, and game settings.
-- Enhanced graphics options: Redesigned Terrain Detail slider with 3D brass knob,
-  track groove with fill progress, scale tick notches, and live numeric value display.
-- Mission fixes: Resolved loading freeze when launching Historical Missions.
-- Clean exit: Resolved potential Grim Reaper crash upon quitting by cleaning up
-  audio subsystems before SDL shutdown.
-- Modern 64x64 Workbench icons: Replaced 32x32 icons with high-resolution 64x64
-  PNG icons for modern screen resolutions, including a distinct "DEBUG" badge
-  for the diagnostic executable.
-- Embedded stack cookie: 4 MB ($STACK: 4194304) for reliable, crash-free execution.
 
 REQUIREMENTS:
 - AmigaOS 4.1 Final Edition (Update 1 or 2 recommended)
@@ -103,20 +88,6 @@ aus dem Zweiten Weltkrieg mit realistischer Physik, Himmelsmechanik, Akustiksens
 (aktives Sonar / GHG-Horchgeraet), Geleitzugtaktik, Schadenskontrolle und 3D-Grafik.
 
 Dieses Paket enthaelt native, hochoptimierte Mesa 3D-Programme fuer AmigaOS 4.1.
-
-NEUERUNGEN & HIGHLIGHTS DER AMIGAOS 4-PORTIERUNG (0.3.900-mesa-r4):
-- Grafischer Ladebalken: Neuer animierter Ladebalken mit Prozentanzeige und
-  mehrsprachiger Statusmeldung beim Spielstart und Laden von Missionen.
-- Menue-Sprachauswahl: Direkte Sprachauswahl in den Optionen mit vollstaendigen
-  deutschen Texten fuer alle Grafik-, Sound- und Spieleinstellungen.
-- Verbesserte Grafikoptionen: Ueberarbeiteter 3D-Messing-Schieberegler fuer die
-  Gelaendedetails mit Fuellstandsleiste, Skalenstrichen und Live-Wertanzeige.
-- Missions-Fix: Ladehaenger beim Starten historischer Missionen behoben.
-- Grim-Reaper-Fix: Absturz beim regulaeren Beenden des Spiels behoben (saubere
-  Freigabe der AHI/SDL-Audio-Ressourcen vor dem Programmende).
-- Moderne 64x64-Icons: Neue doppelt so grosse PNG-Icons fuer moderne Bildschirm-
-  aufloesungen, inklusive eigenem "DEBUG"-Schriftzug fuer das Diagnoseprogramm.
-- 4 MB Stack-Cookie: Fest im ausfuehrbaren Programm eingebettet ($STACK: 4194304).
 
 SYSTEMVORAUSSETZUNGEN:
 - AmigaOS 4.1 Final Edition (Update 1 oder Update 2 empfohlen)

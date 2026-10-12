@@ -9,6 +9,11 @@
 #include <exception>
 #include <proto/exec.h>
 #include <dos/dos.h>
+#if __has_include(<SDL2/SDL.h>)
+#include <SDL2/SDL.h>
+#elif __has_include(<SDL.h>)
+#include <SDL.h>
+#endif
 #if __has_include(<SDL2/SDL_mixer.h>)
 #include <SDL2/SDL_mixer.h>
 #elif __has_include(<SDL_mixer.h>)
@@ -171,18 +176,22 @@ void install_segfault_handler() {
     s_main_task = IExec ? IExec->FindTask(NULL) : NULL;
     uintptr_t ref_addr = (uintptr_t)(void*)&install_segfault_handler;
     intptr_t load_bias = ref_addr - s_elf_ref_addr;
-    dftd_startup_log("faulthandler: installed, main task is 0x%p ('%s'), &install_segfault_handler=0x%p (bias=0x%08lx)",
-                     s_main_task, (s_main_task && s_main_task->tc_Node.ln_Name) ? s_main_task->tc_Node.ln_Name : "unknown",
-                     (void*)&install_segfault_handler, (unsigned long)load_bias);
+#if !defined(DFTD_NO_DEBUG_LOG)
+    if (dftd_is_debug_log_enabled()) {
+        dftd_startup_log("faulthandler: installed, main task is 0x%p ('%s'), &install_segfault_handler=0x%p (bias=0x%08lx)",
+                         s_main_task, (s_main_task && s_main_task->tc_Node.ln_Name) ? s_main_task->tc_Node.ln_Name : "unknown",
+                         (void*)&install_segfault_handler, (unsigned long)load_bias);
 
-    if (SysBase) {
-        struct ExecBase *eb = (struct ExecBase *)SysBase;
-        IExec->Forbid();
-        for (struct Node *node = eb->LibList.lh_Head; node->ln_Succ != NULL; node = node->ln_Succ) {
-            dftd_startup_log("faulthandler: loaded lib '%s' at %p", node->ln_Name ? node->ln_Name : "unnamed", (void*)node);
+        if (SysBase) {
+            struct ExecBase *eb = (struct ExecBase *)SysBase;
+            IExec->Forbid();
+            for (struct Node *node = eb->LibList.lh_Head; node->ln_Succ != NULL; node = node->ln_Succ) {
+                dftd_startup_log("faulthandler: loaded lib '%s' at %p", node->ln_Name ? node->ln_Name : "unnamed", (void*)node);
+            }
+            IExec->Permit();
         }
-        IExec->Permit();
     }
+#endif
 
     // Note: Do NOT register atexit(amiga_safe_audio_stop).
     // Normal exit cleanly terminates audio in music::deinit() and shuts down SDL.
