@@ -1593,17 +1593,25 @@ void menu_opt_network() {
 
 void menu_options() {
     widget w(0, 0, 1024, 768, "", 0, "titlebackgr.jpg");
-    widget_menu *wm = new widget_menu(0, 0, 400, 40, texts::get(29));
-    w.add_child(wm);
+    int retval = 1;
+    do {
+        w.remove_children();
+        widget_menu *wm = new widget_menu(0, 0, 400, 40, texts::get(29));
+        w.add_child(wm);
 
-    wm->add_entry(texts::get(705), new widget_func_button<void (*)()>(&menu_opt_input, 0, 0, 0, 0));
-    wm->add_entry(texts::get(706), new widget_func_button<void (*)()>(&menu_opt_audio, 0, 0, 0, 0));
-    wm->add_entry(texts::get(707), new widget_func_button<void (*)()>(&menu_opt_video, 0, 0, 0, 0));
-    wm->add_entry(texts::get(708), new widget_func_button<void (*)()>(&menu_opt_network, 0, 0, 0, 0));
+        wm->add_entry(texts::get(705), new widget_func_button<void (*)()>(&menu_opt_input, 0, 0, 0, 0));
+        wm->add_entry(texts::get(706), new widget_func_button<void (*)()>(&menu_opt_audio, 0, 0, 0, 0));
+        wm->add_entry(texts::get(707), new widget_func_button<void (*)()>(&menu_opt_video, 0, 0, 0, 0));
+        wm->add_entry(texts::get(708), new widget_func_button<void (*)()>(&menu_opt_network, 0, 0, 0, 0));
+        wm->add_entry(texts::get(26), new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 2, 0, 0, 0, 0));
 
-    wm->add_entry(texts::get(11), new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 0, 0, 0, 0, 0));
-    wm->align(0, 0);
-    w.run(0, false);
+        wm->add_entry(texts::get(11), new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 0, 0, 0, 0, 0));
+        wm->align(0, 0);
+        retval = w.run(0, false);
+        if (retval == 2) {
+            menu_select_language();
+        }
+    } while (retval == 2);
 }
 
 // vessel preview

@@ -87,13 +87,18 @@ void texts::read_category(category ct) {
             p.error("invalid line");
         if (n >= txt.size())
             txt.resize(n + 1);
+        string en_str;
+        string lang_str;
         for (unsigned i = 0; i < available_language_codes.size(); ++i) {
             if (!p.next_column())
                 p.error("no columns left in texts file");
             string s = p.get_cell();
+            if (i == 0)
+                en_str = s;
             if (i == lcn)
-                txt[n] = s;
+                lang_str = s;
         }
+        txt[n] = !lang_str.empty() ? lang_str : en_str;
     }
 }
 
