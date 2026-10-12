@@ -117,13 +117,30 @@ submarine::stored_torpedo::stored_torpedo(game &gm, const std::string &type)
 }
 
 void submarine::stored_torpedo::load(game &gm, const xml_elem &parent) {
-    specfilename = parent.attr("type");
+    if (parent.has_attr("type")) {
+        specfilename = parent.attr("type");
+    } else if (parent.has_child("torpedo") && parent.child("torpedo").has_attr("type")) {
+        specfilename = parent.child("torpedo").attr("type");
+    } else {
+        specfilename = "TI";
+    }
+
     if (parent.has_child("setup")) {
         setup.load(parent.child("setup"));
+    } else if (parent.has_child("torpedo") && parent.child("torpedo").has_child("settings")) {
+        setup.load(parent.child("torpedo").child("settings"));
     } else {
         setup = torpedo::setup();
     }
-    temperature = parent.attrf("temperature");
+
+    if (parent.has_attr("temperature")) {
+        temperature = parent.attrf("temperature");
+    } else if (parent.has_child("torpedo") && parent.child("torpedo").has_child("temperature")) {
+        temperature = parent.child("torpedo").child("temperature").attrf("value");
+    } else {
+        temperature = 15.0;
+    }
+
     status = st_status(parent.attru("status"));
     associated = parent.attru("associated");
     remaining_time = parent.attrf("remaining_time");
@@ -278,27 +295,43 @@ submarine::submarine(game &gm_, const xml_elem &parent)
 
 void submarine::load(const xml_elem &parent) {
     ship::load(parent);
-    xml_elem dv = parent.child("diving");
-    max_depth = dv.attrf("max_depth");
-    dive_to = dv.attrf("dive_to");
-    permanent_dive = dv.attrb("permanent_dive");
-    dive_state = dive_states(dv.attru("dive_state"));
-    bow_depth_rudder.load(dv.child("bow_depth_rudder"));
-    stern_depth_rudder.load(dv.child("stern_depth_rudder"));
-
-    xml_elem tp = parent.child("stored_torpedoes");
-    torpedoes.clear();
-    torpedoes.reserve(tp.attru("nr"));
-    for (xml_elem::iterator it = tp.iterate("stored_torpedo"); !it.end(); it.next()) {
-        torpedoes.push_back(stored_torpedo());
-        torpedoes.back().load(gm, it.elem());
+    if (parent.has_child("diving")) {
+        xml_elem dv = parent.child("diving");
+        max_depth = dv.attrf("max_depth");
+        dive_to = dv.attrf("dive_to");
+        permanent_dive = dv.attrb("permanent_dive");
+        dive_state = dive_states(dv.attru("dive_state"));
+        if (dv.has_child("bow_depth_rudder")) {
+            bow_depth_rudder.load(dv.child("bow_depth_rudder"));
+        } else {
+            bow_depth_rudder.angle = dv.attrf("bow_rudder");
+            bow_depth_rudder.to_angle = dv.attrf("bow_to");
+        }
+        if (dv.has_child("stern_depth_rudder")) {
+            stern_depth_rudder.load(dv.child("stern_depth_rudder"));
+        } else {
+            stern_depth_rudder.angle = dv.attrf("stern_rudder");
+            stern_depth_rudder.to_angle = dv.attrf("stern_to");
+        }
     }
 
-    xml_elem sst = parent.child("sub_state");
-    scope_raise_level = scope_raise_to_level = sst.attrf("scopeup");
-    electric_engine = sst.attru("electric_engine");
-    snorkelup = sst.attru("snorkelup");
-    battery_level = sst.attrf("battery_level");
+    if (parent.has_child("stored_torpedoes")) {
+        xml_elem tp = parent.child("stored_torpedoes");
+        torpedoes.clear();
+        torpedoes.reserve(tp.attru("nr"));
+        for (xml_elem::iterator it = tp.iterate("stored_torpedo"); !it.end(); it.next()) {
+            torpedoes.push_back(stored_torpedo());
+            torpedoes.back().load(gm, it.elem());
+        }
+    }
+
+    if (parent.has_child("sub_state")) {
+        xml_elem sst = parent.child("sub_state");
+        scope_raise_level = scope_raise_to_level = sst.attrf("scopeup");
+        electric_engine = sst.attru("electric_engine");
+        snorkelup = sst.attru("snorkelup");
+        battery_level = sst.attrf("battery_level");
+    }
 
     // fixme: later move to ship, or even sea_object!
 #if 0 // disabled to avoid abort when loading savegames
@@ -310,17 +343,19 @@ void submarine::load(const xml_elem &parent) {
 	}
 #endif
 
-    xml_elem tk = parent.child("tanks");
-    (void)tk;
-    for (xml_elem::iterator it = tp.iterate("tank"); !it.end(); it.next()) {
-        xml_elem e = it.elem();
-        unsigned id = e.attru("nr");
-        if (id >= tanks.size())
-            throw error(std::string("invalid tank nr in ") + e.doc_name());
-        tanks[id].load(e);
+    if (parent.has_child("tanks")) {
+        xml_elem tk = parent.child("tanks");
+        for (xml_elem::iterator it = tk.iterate("tank"); !it.end(); it.next()) {
+            xml_elem e = it.elem();
+            unsigned id = e.attru("nr");
+            if (id < tanks.size())
+                tanks[id].load(e);
+        }
     }
 
-    TDC.load(parent);
+    if (parent.has_child("TDC")) {
+        TDC.load(parent);
+    }
     sonarman.load(parent);
 }
 

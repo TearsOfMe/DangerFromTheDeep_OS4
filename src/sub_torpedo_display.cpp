@@ -121,6 +121,9 @@ const texture &sub_torpedo_display::torptex(const string &torpname) const {
         return *torp6lut1;
     if (torpname == "TXI")
         return *torp1practice;
+    log_warning("sub_torpedo_display: unknown torpedo type '" << torpname << "', using standard TI texture");
+    if (torp1)
+        return *torp1;
     throw error(string("illegal torpedo type ") + torpname);
 }
 

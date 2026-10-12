@@ -215,11 +215,14 @@ game::game(class cfg &cfg_ref, class log &log_ref, const string &subtype, unsign
     date currentdate((unsigned)time);
     equipment_date = currentdate; // fixme: another crude guess or hack
 
+    bool is_de = (texts::get_language_code() == "de");
+    set_loading_progress(0.10f, is_de ? "Berechne Meeres-Simulation..." : "Simulating ocean...");
     dftd_startup_log("game: Initializing water simulation...");
     mywater = std::make_unique<water>(time, cfg_ref);
     dftd_startup_log("game: Water simulation initialized.");
     // myheightgen.reset(new height_generator_map("default.xml"));
 
+    set_loading_progress(0.25f, is_de ? "Generiere Geländedaten..." : "Generating terrain data...");
     dftd_startup_log("game: Initializing terrain...");
     myheightgen = std::make_unique<terrain<Sint16>>(get_map_dir() + "terrain/terrain.xml", get_map_dir() + "terrain/", TERRAIN_NR_LEVELS + 1);
     dftd_startup_log("game: Terrain initialized.");
@@ -227,6 +230,7 @@ game::game(class cfg &cfg_ref, class log &log_ref, const string &subtype, unsign
     // Convoy-constructor creates all the objects and spawns them in this game object.
     // fixme: creation of convoys should be rather moved to this class, so object creation
     // and logic is centralized.
+    set_loading_progress(0.50f, is_de ? "Erstelle Konvoi & Geleitschutz..." : "Spawning convoy & escorts...");
     dftd_startup_log("game: Spawning convoy...");
     auto cv = std::make_unique<convoy>(*this, (convoy::types)(cvsize), (convoy::esctypes)(cvesc));
     spawn_convoy(std::move(cv));
@@ -236,6 +240,7 @@ game::game(class cfg &cfg_ref, class log &log_ref, const string &subtype, unsign
     vector<angle> subangles;
     submarine *psub = 0;
     for (unsigned i = 0; i < nr_of_players; ++i) {
+        set_loading_progress(0.80f, is_de ? "Rüste Spieler-U-Boot aus..." : "Equipping player submarine...");
         dftd_startup_log("game: Loading player submarine subtype '%s'...", subtype.c_str());
         xml_doc doc(data_file().get_filename(subtype));
         doc.load();

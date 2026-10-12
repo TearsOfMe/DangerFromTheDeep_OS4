@@ -435,8 +435,18 @@ void sea_object::load(const xml_elem &parent) {
     xml_elem st = parent.child("state");
     position = st.child("position").attrv3();
     orientation = st.child("orientation").attrq();
-    linear_momentum = st.child("linear_momentum").attrv3();
-    angular_momentum = st.child("angular_momentum").attrv3();
+    if (st.has_child("linear_momentum")) {
+        linear_momentum = st.child("linear_momentum").attrv3();
+    } else if (st.has_child("velocity")) {
+        linear_momentum = st.child("velocity").attrv3() * mass;
+    } else {
+        linear_momentum = vector3(0, 0, 0);
+    }
+    if (st.has_child("angular_momentum")) {
+        angular_momentum = st.child("angular_momentum").attrv3();
+    } else {
+        angular_momentum = vector3(0, 0, 0);
+    }
     compute_helper_values();
 
     // read skin info
@@ -467,11 +477,15 @@ void sea_object::load(const xml_elem &parent) {
     mymodel->register_layout(skin_name);
     //  	cout << "load: registered layout " << skin_name << "\n";
     // load ai
-    if (myai.get()) {
+    if (myai.get() && parent.has_child("AI")) {
         myai->load(gm, parent.child("AI"));
     }
     // load target
-    target = gm.load_ptr(parent.child("target").attru());
+    if (parent.has_child("target")) {
+        target = gm.load_ptr(parent.child("target").attru());
+    } else {
+        target = 0;
+    }
 }
 
 void sea_object::save(xml_elem &parent) const {

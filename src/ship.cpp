@@ -379,22 +379,40 @@ angle ship::estimate_angle_on_the_bow(angle target_bearing, angle target_heading
 
 void ship::load(const xml_elem &parent) {
     sea_object::load(parent);
-    tonnage = parent.child("tonnage").attru();
-    xml_elem st = parent.child("steering");
-    throttle = throttle_status(st.attri("throttle"));
-    rudder.load(st.child("rudder"));
-    head_to_fixed = head_to_param(st.attri("head_to_fixed"));
-    head_to = angle(st.attrf("head_to"));
-    xml_elem dm = parent.child("damage");
-    bow_damage = damage_status(dm.attru("bow"));
-    midship_damage = damage_status(dm.attru("midship"));
-    stern_damage = damage_status(dm.attru("stern"));
-    fuel_level = parent.child("fuel_level").attrf();
-    xml_elem esink = parent.child("sinking");
-    flooding_speed = esink.attrf("flooding_speed");
-    istringstream fiss(esink.child_text());
-    for (unsigned j = 0; j < flooded_mass.size(); ++j)
-        fiss >> flooded_mass[j];
+    if (parent.has_child("tonnage")) {
+        tonnage = parent.child("tonnage").attru();
+    }
+    if (parent.has_child("steering")) {
+        xml_elem st = parent.child("steering");
+        throttle = throttle_status(st.attri("throttle"));
+        if (st.has_child("rudder")) {
+            rudder.load(st.child("rudder"));
+        } else {
+            rudder.angle = st.attrf("rudder_pos");
+            rudder.to_angle = st.attrf("rudder_to");
+        }
+        head_to_fixed = head_to_param(st.attri("head_to_fixed"));
+        head_to = angle(st.attrf("head_to"));
+    }
+    if (parent.has_child("damage")) {
+        xml_elem dm = parent.child("damage");
+        bow_damage = damage_status(dm.attru("bow"));
+        midship_damage = damage_status(dm.attru("midship"));
+        stern_damage = damage_status(dm.attru("stern"));
+    }
+    if (parent.has_child("fuel_level")) {
+        fuel_level = parent.child("fuel_level").attrf();
+    }
+    if (parent.has_child("sinking")) {
+        xml_elem esink = parent.child("sinking");
+        flooding_speed = esink.attrf("flooding_speed");
+        istringstream fiss(esink.child_text());
+        for (unsigned j = 0; j < flooded_mass.size(); ++j)
+            fiss >> flooded_mass[j];
+    } else {
+        flooding_speed = 0.0;
+        flooded_mass.assign(flooded_mass.size(), 0.0);
+    }
 
     // fixme load that
     // list<prev_pos> previous_positions;

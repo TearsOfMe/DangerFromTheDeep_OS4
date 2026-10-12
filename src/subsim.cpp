@@ -1117,34 +1117,54 @@ void choose_historical_mission() {
     // Missions have the same format like savegames, except that the head xml node
     // has an additional child node <description> with multi-lingual descriptions of the mission.
     for (unsigned i = 0; i < nr_missions; ++i) {
-        xml_doc doc(get_mission_dir() + missions[i]);
-        doc.load();
-        xml_elem edftdmission = doc.child("dftd-mission");
-        xml_elem edescription = edftdmission.child("description");
-        for (xml_elem::iterator it = edescription.iterate("short"); !it.end(); it.next()) {
-            if (it.elem().attr("lang") == texts::get_language_code()) {
-                string desc;
-                try {
-                    desc = it.elem().child_text();
-                } catch (xml_error &e) {
-                    desc = "NO DESCRIPTION???";
+        string short_desc;
+        string long_desc;
+        try {
+            xml_doc doc(get_mission_dir() + missions[i]);
+            doc.load();
+            xml_elem edftdmission = doc.child("dftd-mission");
+            if (edftdmission.has_child("description")) {
+                xml_elem edescription = edftdmission.child("description");
+                string first_short;
+                string en_short;
+                for (xml_elem::iterator it = edescription.iterate("short"); !it.end(); it.next()) {
+                    string l = it.elem().attr("lang");
+                    string t = it.elem().child_text();
+                    if (first_short.empty()) first_short = t;
+                    if (l == "en") en_short = t;
+                    if (l == texts::get_language_code()) {
+                        short_desc = t;
+                        break;
+                    }
                 }
-                wmission->append_entry(desc);
-                break;
-            }
-        }
-        for (xml_elem::iterator it = edescription.iterate("long"); !it.end(); it.next()) {
-            if (it.elem().attr("lang") == texts::get_language_code()) {
-                string desc;
-                try {
-                    desc = it.elem().child_text();
-                } catch (xml_error &e) {
-                    desc = "NO DESCRIPTION???";
+                if (short_desc.empty()) {
+                    short_desc = !en_short.empty() ? en_short : first_short;
                 }
-                descrs.push_back(desc);
-                break;
+
+                string first_long;
+                string en_long;
+                for (xml_elem::iterator it = edescription.iterate("long"); !it.end(); it.next()) {
+                    string l = it.elem().attr("lang");
+                    string t = it.elem().child_text();
+                    if (first_long.empty()) first_long = t;
+                    if (l == "en") en_long = t;
+                    if (l == texts::get_language_code()) {
+                        long_desc = t;
+                        break;
+                    }
+                }
+                if (long_desc.empty()) {
+                    long_desc = !en_long.empty() ? en_long : first_long;
+                }
             }
+        } catch (...) {
         }
+
+        if (short_desc.empty()) short_desc = missions[i];
+        if (long_desc.empty()) long_desc = short_desc;
+
+        wmission->append_entry(short_desc);
+        descrs.push_back(long_desc);
     }
     wmission->on_sel_change();
 
@@ -1155,20 +1175,30 @@ void choose_historical_mission() {
     wm->adjust_buttons(944);
     int result = w.run(0, false);
     if (result == 2) { // start game
+        int sel = wmission->get_selected();
+        if (sel < 0 || sel >= int(missions.size())) {
+            return;
+        }
+        bool is_de = (texts::get_language_code() == "de");
+        reset_loading_screen(is_de ? "Lade Mission..." : "Loading mission...", 25);
         std::unique_ptr<game> gm;
         try {
-            gm = std::make_unique<game>(cfg::instance(), log::instance(), get_mission_dir() + missions[wmission->get_selected()]);
+            gm = std::make_unique<game>(cfg::instance(), log::instance(), get_mission_dir() + missions[sel]);
         } catch (const std::exception &e) {
             dftd_startup_log("ERROR loading game: %s", e.what());
             log_warning("error loading game: " << e.what());
-            // fixme: show dialogue!
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                     is_de ? "Fehler beim Laden" : "Load Error",
+                                     e.what(), nullptr);
             return;
         } catch (...) {
             dftd_startup_log("ERROR loading game: unknown exception!");
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                     is_de ? "Fehler beim Laden" : "Load Error",
+                                     is_de ? "Unbekannter Fehler beim Laden der Mission." : "Unknown error while loading mission.",
+                                     nullptr);
             return;
         }
-        // reset loading screen here to show user we are doing something
-        reset_loading_screen();
         run_game(std::move(gm));
     }
 }
@@ -1182,17 +1212,24 @@ void choose_saved_game() {
     if (q == 0)
         return;
     if (q == 2) {
-        // reset loading screen here to show user we are doing something
-        reset_loading_screen();
+        bool is_de = (texts::get_language_code() == "de");
+        reset_loading_screen(is_de ? "Lade Spielstand..." : "Loading saved game...", 25);
         std::unique_ptr<game> gm;
         try {
             gm = std::make_unique<game>(cfg::instance(), log::instance(), dlg.get_gamefilename_to_load());
         } catch (const std::exception &e) {
             dftd_startup_log("ERROR loading saved game: %s", e.what());
             log_warning("error loading saved game: " << e.what());
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                     is_de ? "Fehler beim Laden" : "Load Error",
+                                     e.what(), nullptr);
             return;
         } catch (...) {
             dftd_startup_log("ERROR loading saved game: unknown exception!");
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+                                     is_de ? "Fehler beim Laden" : "Load Error",
+                                     is_de ? "Unbekannter Fehler beim Laden des Spielstands." : "Unknown error while loading saved game.",
+                                     nullptr);
             return;
         }
         run_game(std::move(gm));

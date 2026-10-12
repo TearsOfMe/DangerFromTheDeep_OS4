@@ -142,6 +142,22 @@ void display_loading_screen() {
 
             // Top glint line
             draw_loading_rect(bar_x, bar_y, fill_w, 1.5f, colorf(1.0f, 0.96f, 0.75f, 0.90f));
+
+            // Dynamic activity shimmer wave sweeping across the filled bar:
+            // This visually confirms calculation is actively happening even between progress jumps!
+            float cycle_pos = fmodf(static_cast<float>(sys().millisec()) / 1400.0f, 1.0f);
+            float shimmer_x = bar_x + fill_w * cycle_pos;
+            float shimmer_w = std::min(60.0f, fill_w * 0.40f);
+            float s_left = std::max(bar_x, shimmer_x - shimmer_w * 0.5f);
+            float s_right = std::min(bar_x + fill_w, shimmer_x + shimmer_w * 0.5f);
+            if (s_right > s_left) {
+                draw_loading_rect(s_left, bar_y, s_right - s_left, bar_h, colorf(1.0f, 1.0f, 0.95f, 0.35f));
+                float c_left = std::max(bar_x, shimmer_x - shimmer_w * 0.2f);
+                float c_right = std::min(bar_x + fill_w, shimmer_x + shimmer_w * 0.2f);
+                if (c_right > c_left) {
+                    draw_loading_rect(c_left, bar_y, c_right - c_left, bar_h, colorf(1.0f, 1.0f, 1.0f, 0.28f));
+                }
+            }
         }
 
         // Restore face culling state
@@ -162,6 +178,19 @@ void display_loading_screen() {
         font_arial->print_c(512, static_cast<int>(bar_y + bar_h * 0.5f),
                             oss.str(),
                             color(255, 255, 255), true);
+
+        // 8. Animated calculation activity indicator below the progress bar
+        bool is_de = (texts::get_language_code() == "de");
+        unsigned anim_step = (sys().millisec() / 300) % 4;
+        string dots(anim_step + 1, '.');
+        ostringstream calc_oss;
+        calc_oss << (is_de ? "Berechnung läuft" : "Calculating") << dots;
+        float pulse = 0.65f + 0.35f * sinf(static_cast<float>(sys().millisec()) * 0.005f);
+        font_arial->print_hc(512, static_cast<int>(bar_y + bar_h + 10.0f),
+                             calc_oss.str(),
+                             color(static_cast<Uint8>(180.0f * pulse),
+                                   static_cast<Uint8>(205.0f * pulse),
+                                   static_cast<Uint8>(230.0f * pulse)), true);
     }
 
     sys().unprepare_2d_drawing();

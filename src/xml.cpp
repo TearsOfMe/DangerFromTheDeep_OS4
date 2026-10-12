@@ -71,8 +71,13 @@ std::string xml_elem::attr(const std::string &name) const {
 
 int xml_elem::attri(const std::string &name) const {
     const std::string *tmp = elem->Attribute(name);
-    if (tmp)
-        return std::stoi(*tmp);
+    if (tmp) {
+        try {
+            return std::stoi(*tmp);
+        } catch (...) {
+            return 0;
+        }
+    }
     return 0;
 }
 
@@ -82,8 +87,13 @@ unsigned xml_elem::attru(const std::string &name) const {
 
 double xml_elem::attrf(const std::string &name) const {
     const std::string *tmp = elem->Attribute(name);
-    if (tmp)
-        return std::stod(*tmp);
+    if (tmp) {
+        try {
+            return std::stod(*tmp);
+        } catch (...) {
+            return 0.0;
+        }
+    }
     return 0.0;
 }
 
