@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "system.h"
 #include "xml.h"
 #include "display_backend.h"
+#include "faulthandler.h"
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -176,6 +177,7 @@ void music::loop() {
 }
 
 void music::deinit() {
+    amiga_mark_audio_stopped();
     if (!use_music)
         return;
 

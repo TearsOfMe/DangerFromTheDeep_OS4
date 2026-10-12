@@ -53,12 +53,6 @@ global_data::global_data()
 {
 }
 
-global_data::~global_data() {
-}
-
-font *font_arial = 0, *font_jphsl = 0, *font_vtremington10 = 0, *font_vtremington12 = 0,
-     *font_typenr16 = 0;
-
 // display loading progress
 list<string> loading_screen_messages;
 unsigned starttime;
@@ -67,6 +61,18 @@ static float current_loading_progress = 0.0f;
 static std::string current_loading_status = "";
 static int loading_step_count = 0;
 static int loading_expected_steps = 10;
+
+global_data::~global_data() {
+    loading_background_ref.reset();
+    font_arial = nullptr;
+    font_jphsl = nullptr;
+    font_vtremington10 = nullptr;
+    font_vtremington12 = nullptr;
+    font_typenr16 = nullptr;
+}
+
+font *font_arial = 0, *font_jphsl = 0, *font_vtremington10 = 0, *font_vtremington12 = 0,
+     *font_typenr16 = 0;
 
 // Helper to draw filled rectangles in 2D OpenGL mode
 static void draw_loading_rect(float x, float y, float w, float h, const colorf &col) {

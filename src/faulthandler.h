@@ -31,6 +31,7 @@ Win32 and MacOsX do not suppport backtracking
 
 void print_stack_trace();
 void install_segfault_handler();
+void amiga_mark_audio_stopped();
 
 #elif (defined(__APPLE__) && defined(__MACH__)) || defined MINGW32
 
@@ -128,5 +129,9 @@ void sigsegv_handler(int number);
 void install_segfault_handler();
 
 #endif // WIN32 || MacOSX
+
+#if !defined(__amigaos4__)
+inline void amiga_mark_audio_stopped() {}
+#endif
 
 #endif // FAULTHANDLER_H

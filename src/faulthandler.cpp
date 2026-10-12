@@ -16,11 +16,22 @@
 #endif
 
 static struct Task *s_main_task = NULL;
+static bool s_audio_stopped = false;
+
+void amiga_mark_audio_stopped() {
+    s_audio_stopped = true;
+}
 
 static void amiga_safe_audio_stop() {
-    static bool audio_stopped = false;
-    if (audio_stopped) return;
-    audio_stopped = true;
+    if (s_audio_stopped) return;
+    s_audio_stopped = true;
+
+    // Only attempt SDL audio calls if SDL is active and audio subsystem is still initialized
+    if (!SDL_WasInit(0) || !SDL_WasInit(SDL_INIT_AUDIO)) {
+        dftd_startup_log("faulthandler: SDL audio not active or already quit, skipping audio stop.");
+        return;
+    }
+
     dftd_startup_log("faulthandler: Stopping SDL audio...");
     Mix_HaltMusic();
     Mix_HaltChannel(-1);
@@ -173,7 +184,9 @@ void install_segfault_handler() {
         IExec->Permit();
     }
 
-    atexit(amiga_safe_audio_stop);
+    // Note: Do NOT register atexit(amiga_safe_audio_stop).
+    // Normal exit cleanly terminates audio in music::deinit() and shuts down SDL.
+    // Signal handlers (SIGSEGV, SIGABRT, abort, etc.) invoke amiga_safe_audio_stop explicitly.
     std::set_terminate(amiga_terminate_handler);
     signal(SIGSEGV, amiga_fault_handler);
     signal(SIGFPE, amiga_fault_handler);
