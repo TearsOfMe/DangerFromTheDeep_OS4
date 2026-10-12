@@ -151,7 +151,11 @@ HAUPTMENUE:
   * "Gespeichertes Spiel": Vorherige Spielstaende fortsetzen.
 - Missionseditor: Eigene Szenarien entwerfen.
 - Schiffe & Flugzeuge: 3D-Schau aller historischen Einheiten.
-- Optionen: Sprache, Grafikdetails, Soundlaustaerke.
+- Optionen: Sprache (Deutsch, Englisch etc.), Grafikdetails, Soundlaustaerke.
+
+LADEFORTSCHRITT:
+- Beim Spielstart sowie beim Laden jeder Mission zeigt ein animierter Ladebalken
+  mit Prozentanzeige und Statusmeldung den aktuellen Ladevorgang an.
 
 SPEICHERN & LADEN:
 - Waehrend des Spiels koennen Sie ueber das Pausemenue [Esc] den Spielstand speichern.
@@ -196,8 +200,9 @@ SPEICHERN & LADEN:
   DangerFromTheDeep --nosound            (Ohne Soundausgabe)
   DangerFromTheDeep --maxfps 60          (FPS auf 60 limitieren)
 
-- In den Spieloptionen koennen Sie Wasserreflexionen, Gischt-Effekte und die
-  Gelaendedetails fuer schwaechere Grafikkarten anpassen.
+- In den Spieloptionen koennen Sie Wasserreflexionen, Gischt-Effekte sowie
+  ueber den Schieberegler (mit 3D-Messinggriff und Skala) die Gelaendedetails
+  (Terrain Detail: Stufen 3 bis 9) fuer optimale Bildraten feinstufig anpassen.
 
 
 ================================================================================
