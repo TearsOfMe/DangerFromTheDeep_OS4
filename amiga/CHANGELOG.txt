@@ -9,6 +9,37 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r6 (2026-10-13)
+------------------------------------
+* AMIGA VERSION STRING:
+  - Added official AmigaOS version tag ($VER: DangerFromTheDeep 0.5.1 (13.10.2026)
+    AmigaOS 4 Port by TearsOfMe). Visible via Workbench 'Version' command.
+
+* FPS COUNTER (IN-GAME & OPTIONS):
+  - Added live in-game FPS counter option: Can be enabled/disabled in the Video
+    Options menu ("FPS-Anzeige einblenden" / "Show FPS counter").
+  - Added convenient in-game toggle shortcut [Ctrl + F] to switch the FPS display
+    on or off anytime during a mission with instant onscreen feedback.
+
+* STABILITY & CRASH FIX ON WINDOW CLOSE:
+  - Fixed crash (Grim Reaper) when closing the game via window close gadget while
+    on the submarine bridge:
+    1) Audio cleanup: Ensured Mix_HaltChannel(-1) halts active sound channels
+       (diesel engine sfx) before freeing chunk memory in the music thread.
+    2) Display cleanup: Properly invoke display leave() during user interface
+       shutdown to reset bridge-specific textures (glasses_tex) and view states.
+    3) Texture cache: Replaced raw pointer texture cache ownership in freeview
+       displays with safe std::shared_ptr management (insert_shared), preventing
+       dangling pointer double-free across bridge, periscope, and UZO displays.
+    4) Event loop: Immediately break out of simulation and render loop when the
+       window close gadget is clicked instead of processing another render pass.
+
+* AMIGAONE X1000 & ALTIVEC CONFIRMATION:
+  - Confirmed and verified AltiVec SIMD acceleration is 100% active on the
+    AmigaOne X1000 (PA6T processor). ExecSG GCIT_VectorUnit detection is fully
+    intact, with cached inline check for zero-overhead matrix transformations.
+
+
 Version 0.3.900-mesa-r5 (2026-10-13)
 ------------------------------------
 * PERFORMANCE & 100% CPU LOAD FIX:
@@ -82,7 +113,41 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 
 ================================================================================
 [DE] DEUTSCH
-================================================================================
+===============================================================================
+
+Version 0.3.900-mesa-r6 (13.10.2026)
+------------------------------------
+* AMIGA-VERSIONSSTRING:
+  - Offiziellen AmigaOS-Versionsstring ($VER: DangerFromTheDeep 0.5.1 (13.10.2026)
+    AmigaOS 4 Port by TearsOfMe) eingebettet. Kann ueber den Workbench-Befehl
+    'Version' abgefragt werden.
+
+* FPS-ANZEIGE (IM SPIEL & IN DEN OPTIONEN):
+  - Live FPS-Zaehler hinzugefuegt: Kann in den Video-Optionen ein- und
+    ausgeschaltet werden ("FPS-Anzeige einblenden").
+  - Bequeme Schnelltaste [Strg + F] im Spiel integriert, um die FPS-Anzeige
+    jederzeit waehrend der Feindfahrt mit Bildschirmausgabe umzuschalten.
+
+* STABILITAET & ABSTURZBEHEBUNG BEIM SCHLIESSEN DES FENSTERS:
+  - Absturz (Grim Reaper) beim Beenden ueber den Fenster-Schliessknopf auf der
+    U-Boot-Bruecke vollstaendig behoben:
+    1) Audio-Bereinigung: Mix_HaltChannel(-1) stoppt alle aktiven Tonkanaele
+       (u.a. dauerhaft laufender Dieselmotor-Sound) vor dem Freigeben der
+       Sound-Chunks im Music-Thread.
+    2) Display-Bereinigung: Sauberes Aufrufen von leave() beim Zerstoeren des
+       User-Interface, um brueckenspezifische Texturen (glasses_tex) freizugeben.
+    3) Textur-Cache: Eigentuemerstruktur der Hintergrundtextur im Cache auf
+       sicheres std::shared_ptr (insert_shared) umgestellt; verhindert
+       Dangling-Pointer-Konflikte zwischen Bruecke, Sehrohr und UZO.
+    4) Hauptschleife: Sofortiges Beenden der Simulations- und Render-Schleife
+       bei Klick auf das Schliessgadget, statt noch einen weiteren Frame zu zeichnen.
+
+* AMIGAONE X1000 & ALTIVEC BESTAETIGUNG:
+  - Bestaetigt und verifiziert: AltiVec-SIMD-Beschleunigung ist auf dem
+    AmigaOne X1000 (PA6T) zu 100% aktiv. Die ExecSG GCIT_VectorUnit-Erkennung
+    ist vollstaendig intakt und wurde durch Inline-Caching fuer maximale
+    Matrix-Rechenleistung optimiert.
+
 
 Version 0.3.900-mesa-r5 (13.10.2026)
 ------------------------------------

@@ -48,7 +48,7 @@ freeview_display::projection_data sub_bridge_display::get_projection_data(game &
 
 void sub_bridge_display::post_display(game &gm) const {
     draw_with_2d_and_panel([this]() {
-        if (glasses_in_use) {
+        if (glasses_in_use && glasses_tex) {
             glasses_tex->draw(0, 0, 1024, 768);
         }
     },
@@ -88,6 +88,7 @@ void sub_bridge_display::process_input(class game &gm, const game_event &event) 
                 break;
             }
         }
+        break;
     case event_type::MOUSE_WHEEL:
         if (event.wheel_y > 0) {
             return;

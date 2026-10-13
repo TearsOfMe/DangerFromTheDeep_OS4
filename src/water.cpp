@@ -1417,6 +1417,7 @@ void water::wavetile_phase::mipmap_level::compute_normals(bool generate_tex) {
                 const vector3f &f5 = facenormals[2 * (y1 + x) + 1];
                 float nx = f0.x + f1.x + f2.x + f3.x + f4.x + f5.x;
                 float ny = f0.y + f1.y + f2.y + f3.y + f4.y + f5.y;
+                float nz = f0.z + f1.z + f2.z + f3.z + f4.z + f5.z;
                 float lsq = nx * nx + ny * ny + nz * nz;
 #if defined(__powerpc__) || defined(__ppc__)
                 float inv_len = 0.0f;

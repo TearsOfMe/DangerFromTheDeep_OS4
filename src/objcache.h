@@ -120,6 +120,22 @@ class objcachet {
         return true;
     }
 
+    // Insert externally created shared_ptr into cache
+    bool insert_shared(const std::string &objname, std::shared_ptr<T> sp) {
+        if (objname.empty() || !sp)
+            return false;
+
+        auto it = cache.find(objname);
+        if (it != cache.end()) {
+            if (auto existing = it->second.lock()) {
+                return false; // already exists
+            }
+        }
+
+        cache[objname] = sp;
+        return true;
+    }
+
     // Decrement reference count
     void unref(const std::string &objname) {
         if (objname.empty())

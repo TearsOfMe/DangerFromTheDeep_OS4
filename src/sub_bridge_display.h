@@ -36,7 +36,7 @@ class sub_bridge_display : public freeview_display {
 
   public:
     sub_bridge_display(class user_interface &ui_);
-    virtual ~sub_bridge_display() {};
+    virtual ~sub_bridge_display() { leave(); }
 
     // overload for glasses key handling ('y')
     virtual void process_input(class game &gm, const game_event &event);

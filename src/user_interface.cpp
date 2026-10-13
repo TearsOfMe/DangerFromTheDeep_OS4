@@ -214,6 +214,9 @@ user_interface *user_interface::create(game &gm) {
 }
 
 user_interface::~user_interface() {
+    if (current_display < displays.size() && displays[current_display]) {
+        displays[current_display]->leave();
+    }
     particle::deinit();
 }
 
@@ -361,7 +364,14 @@ void user_interface::process_input(const game_event &event) {
     }
 
     if (event.type == event_type::KEY_DOWN) {
-        if (config.getkey(KEY_TOGGLE_RELATIVE_BEARING).equal(event.keysym)) {
+        if (event.keysym.sym == SDLK_f && (event.keysym.mod & (DFTD_KMOD_LCTRL | DFTD_KMOD_RCTRL))) {
+            bool cur = config.getb("show_fps");
+            config.set("show_fps", !cur);
+            bool is_de = (texts::get_language_code() == "de");
+            add_message(!cur ? (is_de ? "FPS-Anzeige: EIN" : "FPS counter: ON")
+                             : (is_de ? "FPS-Anzeige: AUS" : "FPS counter: OFF"));
+            return;
+        } else if (config.getkey(KEY_TOGGLE_RELATIVE_BEARING).equal(event.keysym)) {
             bearing_is_relative = !bearing_is_relative;
             add_message(texts::get(bearing_is_relative ? 220 : 221));
             return;

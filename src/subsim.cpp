@@ -25,6 +25,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <windows.h>
 #endif
 
+#if defined(__amigaos4__)
+static const char __attribute__((used)) amiga_version_tag[] =
+    "\0$VER: DangerFromTheDeep 0.5.1 (13.10.2026) AmigaOS 4 Port by TearsOfMe";
+#endif
+
 #include <time.h>
 
 #include "oglext/OglExt.h"
@@ -372,15 +377,16 @@ void show_results_for_game(const game &gm) {
 
 // main play loop
 // fixme: clean this up!!!
+static float s_display_fps = 0.0f;
+
 game::run_state game__exec(game &gm, user_interface &ui) {
     dftd_startup_log("game__exec: starting...");
     unsigned frames = 1;
     unsigned lasttime = sys().millisec();
     unsigned lastframes = 1;
-    (void)lastframes;
     double fpstime = 0;
     double totaltime = 0;
-    double measuretime = 5; // seconds
+    double measuretime = 0.5; // Update FPS calculation every 0.5s
 
     dftd_startup_log("game__exec: resuming all sound...");
     ui.resume_all_sound();
@@ -403,6 +409,11 @@ game::run_state game__exec(game &gm, user_interface &ui) {
             // maybe limit input processing to 30 fps
             ui.process_input(events);
             dftd_startup_log("game__exec: loop frame %u, input processed.", frames);
+
+            if (ui.abort_requested() || sys().is_quit_requested()) {
+                dftd_startup_log("game__exec: abort or quit requested after input, exiting game loop.");
+                break;
+            }
 
             // this time_scaling is bad. hits may get computed wrong when time
             // scaling is too high. fixme
@@ -439,20 +450,31 @@ game::run_state game__exec(game &gm, user_interface &ui) {
             dftd_startup_log("game__exec: loop frame %u, calling ui.display()...", frames);
             ui.display();
             dftd_startup_log("game__exec: loop frame %u, ui.display() complete.", frames);
-            ++frames;
 
-#if !defined(DFTD_NO_DEBUG_LOG)
-            // record fps
+            // Record and compute fps
             if (totaltime - fpstime >= measuretime) {
+                s_display_fps = static_cast<float>((frames - lastframes) / (totaltime - fpstime));
                 fpstime = totaltime;
+#if !defined(DFTD_NO_DEBUG_LOG)
                 float refl_ms = 0.0f, foam_ms = 0.0f, wat_ms = 0.0f, terr_ms = 0.0f;
                 extern void freeview_get_and_reset_timings(float &refl_ms, float &foam_ms, float &water_ms, float &terr_ms);
                 freeview_get_and_reset_timings(refl_ms, foam_ms, wat_ms, terr_ms);
                 dftd_startup_log("game__exec: fps %.1f (refl=%.1fms foam=%.1fms water=%.1fms terr=%.1fms)",
-                                 (frames - lastframes) / measuretime, refl_ms, foam_ms, wat_ms, terr_ms);
+                                 s_display_fps, refl_ms, foam_ms, wat_ms, terr_ms);
+#endif
                 lastframes = frames;
             }
-#endif
+
+            // Draw in-game FPS counter if enabled in options
+            if (cfg::instance().getb("show_fps") && font_arial) {
+                char fps_buf[32];
+                snprintf(fps_buf, sizeof(fps_buf), "FPS: %.1f", s_display_fps);
+                sys().prepare_2d_drawing();
+                font_arial->print(10, 10, fps_buf, color(255, 230, 50), true);
+                sys().unprepare_2d_drawing();
+            }
+
+            ++frames;
 
             dftd_startup_log("game__exec: loop frame %u, swapping buffers...", frames - 1);
             sys().swap_buffers();
@@ -1482,6 +1504,8 @@ void menu_opt_video() {
 
     widget_slider *terrain_lod = new widget_slider(x, y + 120, wd, 80, texts::get(112), 3, 9, config.geti("terrain_detail"), 1);
     widget_checkbox *tex_compress = new widget_checkbox(right, y + 120, wd, 40, config.getb("use_compressed_textures"), texts::get(721));
+    bool is_de = (texts::get_language_code() == "de");
+    widget_checkbox *show_fps = new widget_checkbox(right, y + 165, wd, 40, config.getb("show_fps"), is_de ? "FPS-Anzeige einblenden" : "Show FPS counter");
 
     widget_list *wfx_quality = new widget_list(x + (wd / 2), y + 220, wd / 2, 80);
     widget_text *wfx_quality_txt = new widget_text(x, y + 220, wd / 2, 20, texts::get(713));
@@ -1536,6 +1560,7 @@ void menu_opt_video() {
 
     w.add_child(terrain_lod);
     w.add_child(tex_compress);
+    w.add_child(show_fps);
 
     w.add_child(w_postprocessing);
     w.add_child(w_postprocessing_txt);
@@ -1556,6 +1581,7 @@ void menu_opt_video() {
 
     config.set("terrain_detail", terrain_lod->get_curr_value());
     config.set("use_compressed_textures", tex_compress->is_checked());
+    config.set("show_fps", show_fps->is_checked());
 
     config.set("sfx_quality", wfx_quality->get_selected());
     config.set("postprocessing", w_postprocessing->get_selected());
@@ -1968,6 +1994,7 @@ int mymain(list<string> &args) {
     mycfg.register_option("hint_mipmap", 0);
     mycfg.register_option("hint_texture_compression", 0);
     mycfg.register_option("vsync", false);
+    mycfg.register_option("show_fps", false);
     mycfg.register_option("water_detail", 128);
     mycfg.register_option("wave_fft_res", 128);
     mycfg.register_option("wave_phases", 256);

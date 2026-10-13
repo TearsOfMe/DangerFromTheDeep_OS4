@@ -55,10 +55,6 @@ class freeview_display : public user_display {
     objcachet<texture>::reference underwater_background;
     objcachet<texture>::reference splashring;
 
-    /// Owner of the texture inserted into texturecache for "underwater_background.png".
-    /// ref(objname, raw_ptr) does not take ownership; we must keep it alive.
-    std::unique_ptr<texture> underwater_background_owner;
-
     freeview_display();
 
     // display() calls these functions

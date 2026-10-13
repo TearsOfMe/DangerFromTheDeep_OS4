@@ -58,6 +58,9 @@ music::~music() {
 
 void music::destructor() {
     audio_backend* be = get_audio_backend();
+    if (be) {
+        be->halt_channel(-1);
+    }
     for (auto& kv : sfx_events) {
         for (auto* c : kv.second)
             be->free_chunk(c);
@@ -182,18 +185,22 @@ void music::deinit() {
         return;
 
     audio_backend* be = get_audio_backend();
-    if (be->is_playing_music()) {
-        be->halt_music();
-        stopped = true;
-    }
+    if (be) {
+        be->halt_channel(-1);
+        if (be->is_playing_music()) {
+            be->halt_music();
+            stopped = true;
+        }
 
-    for (auto* m : musiclist)
-        be->free_music(m);
-    musiclist.clear();
+        for (auto* m : musiclist)
+            be->free_music(m);
+        musiclist.clear();
+    }
 
     destructor();
 
-    be->close_audio();
+    if (be)
+        be->close_audio();
 }
 
 void music::request_abort() {
