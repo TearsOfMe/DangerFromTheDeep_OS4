@@ -429,6 +429,9 @@ game::run_state game__exec(game &gm, user_interface &ui) {
                     }
                 }
                 dftd_startup_log("game__exec: loop frame %u, simulate complete.", frames);
+            } else {
+                // When paused, yield CPU time instead of burning cycles rendering at maximum rate
+                ::thread::sleep(15);
             }
 
             // fixme: make use of game::job interface, 3600/256 = 14.25 secs job period

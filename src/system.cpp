@@ -471,8 +471,17 @@ void system::swap_buffers() {
             last_swap_time = tm + dmax - d;
         } else {
             last_swap_time = tm;
+#ifdef __amigaos4__
+            // Yield CPU slice to other AmigaOS tasks (audio task, input handler, drivers)
+            display_delay(1);
+#endif
         }
     }
+#ifdef __amigaos4__
+    else {
+        display_delay(1);
+    }
+#endif
 }
 
 list<game_event> system::poll_event_queue() {

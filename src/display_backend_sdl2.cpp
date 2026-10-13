@@ -70,7 +70,7 @@ void display_create_window(const char* caption, int w, int h, bool fullscreen,
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #ifdef __amigaos4__
     // GL4ES / Mesa requires OpenGL 2.1 context hints
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);

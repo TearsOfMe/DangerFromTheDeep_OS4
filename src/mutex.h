@@ -23,22 +23,52 @@
 #ifndef MUTEX_H
 #define MUTEX_H
 
+#ifdef __amigaos4__
+#include <SDL.h>
+#else
 #include <mutex>
+#endif
 
 /// A classical mutex.
-///@note This implementation uses std::recursive_mutex, so you can lock the mutex again
+///@note This implementation uses std::recursive_mutex (or SDL_mutex on AmigaOS 4), so you can lock the mutex again
 ///      in the same thread where you already have locked it.
 class mutex {
     friend class condvar;
 
   protected:
+#ifdef __amigaos4__
+    SDL_mutex *mtx;
+#else
     std::recursive_mutex mtx;
+#endif
 
   private:
     mutex(const mutex &) = delete;
     mutex &operator=(const mutex &) = delete;
 
   public:
+    /// create a mutex
+#ifdef __amigaos4__
+    mutex() : mtx(SDL_CreateMutex()) {}
+
+    /// destroy mutex
+    ~mutex() {
+        if (mtx) {
+            SDL_DestroyMutex(mtx);
+            mtx = nullptr;
+        }
+    }
+
+    /// lock mutex
+    void lock() {
+        if (mtx) SDL_LockMutex(mtx);
+    }
+
+    /// unlock the mutex
+    void unlock() {
+        if (mtx) SDL_UnlockMutex(mtx);
+    }
+#else
     /// create a mutex
     mutex() = default;
 
@@ -50,6 +80,7 @@ class mutex {
 
     /// unlock the mutex
     void unlock() { mtx.unlock(); }
+#endif
 };
 
 /// A handy helper class for mutexes.

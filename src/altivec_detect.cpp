@@ -8,10 +8,12 @@
 #include <exec/exectags.h>
 #endif
 
-bool cpu_has_altivec() {
-    static int s_cached = -1;
-    if (s_cached != -1) {
-        return s_cached != 0;
+bool g_cpu_has_altivec = false;
+bool g_cpu_altivec_initialized = false;
+
+bool cpu_detect_altivec_init() {
+    if (g_cpu_altivec_initialized) {
+        return g_cpu_has_altivec;
     }
 
     bool has = false;
@@ -64,7 +66,8 @@ bool cpu_has_altivec() {
     fflush(stdout);
 #endif
 
-    s_cached = has ? 1 : 0;
+    g_cpu_has_altivec = has;
+    g_cpu_altivec_initialized = true;
     return has;
 }
 

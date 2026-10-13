@@ -24,13 +24,21 @@
 #define CONDVAR_H
 
 #include "mutex.h"
+#ifdef __amigaos4__
+#include <SDL.h>
+#else
 #include <condition_variable>
+#endif
 
 /// A classical condition variable.
 ///@note Condition variables work together with class mutex.
 class condvar {
   protected:
+#ifdef __amigaos4__
+    SDL_cond *cdv;
+#else
     std::condition_variable_any cdv;
+#endif
 
   private:
     condvar(const condvar &) = delete;
@@ -38,6 +46,41 @@ class condvar {
 
   public:
     /// create condition variable
+#ifdef __amigaos4__
+    condvar() : cdv(SDL_CreateCond()) {}
+
+    /// destroy condition variable
+    ~condvar() {
+        if (cdv) {
+            SDL_DestroyCond(cdv);
+            cdv = nullptr;
+        }
+    }
+
+    /// wait on condition
+    ///@param m - mutex to encapsulate waiting condition
+    void wait(::mutex &m) {
+        if (cdv && m.mtx) {
+            SDL_CondWait(cdv, m.mtx);
+        }
+    }
+
+    /// wait on condition with timeout
+    ///@param m - mutex to encapsulate waiting condition
+    ///@param ms - timeout value in milliseconds
+    ///@return true when woken up by signal, false on timeout
+    bool timed_wait(::mutex &m, unsigned ms) {
+        if (cdv && m.mtx) {
+            return SDL_CondWaitTimeout(cdv, m.mtx, ms) == 0;
+        }
+        return false;
+    }
+
+    /// send signal to threads that are waiting on the condition.
+    void signal() {
+        if (cdv) SDL_CondBroadcast(cdv);
+    }
+#else
     condvar() = default;
 
     /// destroy condition variable
@@ -67,6 +110,7 @@ class condvar {
     void signal() {
         cdv.notify_all();
     }
+#endif
 };
 
 #endif
