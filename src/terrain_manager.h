@@ -57,7 +57,7 @@ class terrain_manager {
     /// @param offset - offset for rendering
     /// @param mirrored - is view mirrored (for water reflection)
     /// @param above_water - is viewer above water
-    void render(const frustum &viewfrustum, const vector3 &offset, bool mirrored, bool above_water);
+    void render(const frustum &viewfrustum, const vector3 &offset, bool mirrored, int above_water);
 
     /// Get underlying geoclipmap (const access)
     const geoclipmap &get_geoclipmap() const { return *mygeoclipmap; }

@@ -35,6 +35,6 @@ void terrain_manager::set_viewer_position(const vector3 &viewpos) {
     mygeoclipmap->set_viewerpos(viewpos);
 }
 
-void terrain_manager::render(const frustum &viewfrustum, const vector3 &offset, bool mirrored, bool above_water) {
+void terrain_manager::render(const frustum &viewfrustum, const vector3 &offset, bool mirrored, int above_water) {
     mygeoclipmap->display(viewfrustum, offset, mirrored, above_water);
 }

@@ -2238,7 +2238,20 @@ int mymain(list<string> &args) {
     font_jphsl = &sys().register_font(get_font_dir(), "font_jphsl");
     font_vtremington10 = &sys().register_font(get_font_dir(), "font_vtremington10");
     font_vtremington12 = &sys().register_font(get_font_dir(), "font_vtremington12");
+    font_vtremington14 = &sys().register_font(get_font_dir(), "font_vtremington14");
     font_typenr16 = &sys().register_font(get_font_dir(), "font_typenr16");
+    if (font_typenr16) {
+        font_typenr16->set_fallback(font_vtremington14);
+    }
+    if (font_vtremington14) {
+        font_vtremington14->set_fallback(font_arial);
+    }
+    if (font_vtremington12) {
+        font_vtremington12->set_fallback(font_arial);
+    }
+    if (font_vtremington10) {
+        font_vtremington10->set_fallback(font_arial);
+    }
     widget::set_image_cache(&(imagecache()));
     set_loading_progress(0.20f, is_de ? "Prüfe 3D-Grafikfunktionen..." : "Checking 3D graphics...");
 
@@ -2354,7 +2367,7 @@ int mymain(list<string> &args) {
     music::instance().play();
 
     widget::set_theme(std::make_unique<widget::theme>("widgetelements_menu.png", "widgeticons_menu.png",
-                                                      font_typenr16,
+                                                      font_vtremington14,
                                                       color(182, 146, 137),
                                                       color(240, 217, 127) /*color(222, 208, 195)*/,
                                                       color(92, 72, 68)));

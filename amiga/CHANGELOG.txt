@@ -9,65 +9,82 @@
 [EN] ENGLISH
 ================================================================================
 
-Version 0.3.900-mesa-r9 (2026-10-14)
-------------------------------------
-* FULLSCREEN RESOLUTION SWITCHING:
-  - Fixed changing resolutions in fullscreen mode: Previously, SDL_WINDOW_FULLSCREEN_DESKTOP
-    was hardcoded, preventing actual video mode changes and reverting any selected mode
-    back to the desktop resolution (e.g. 1920x1080).
-  - Implemented display_set_mode(): Switches hardware video modes using SDL_SetWindowDisplayMode
-    and SDL_WINDOW_FULLSCREEN when selecting non-desktop resolutions (e.g. 1024x768, 1280x720,
-    1280x1024) on AmigaOS 4 / Warp3D Nova. Uses borderless desktop fullscreen when matching desktop.
-  - Video mode persistence: Changing resolution now immediately saves the new resolution to
-    the config file.
-  - Enhanced resolution selector: Automatic deduplication and guaranteed availability of standard
-    resolutions (800x600, 1024x768, 1280x720, 1280x1024, 1920x1080).
+Version 0.3.900-mesa-r11 (2026-10-14)
+-------------------------------------
+* WATER & HORIZON VISUAL ARTIFACTS FIX:
+  - Eliminated procedural terrain patches/blocks rising from the open ocean:
+    1) Fixed height_generator_map::generate_patch: Prevented procedural Gaussian
+       noise from pushing ocean floor elevations (negative depths) above sea level
+       (> 0.0m). Ocean vertices are now strictly clamped to <= -1.0m, ensuring
+       no procedural land tiles ever appear in open sea.
+    2) Land vertices (elevation > 0.0m) are clamped to >= +0.5m, ensuring crisp,
+       natural coastlines with clean sea-level separation.
+    3) Fixed above_water parameter in terrain_manager: Corrected signature from
+       'bool above_water' to 'int above_water', preventing underwater (-1) view
+       modes from being cast to true.
+    4) Fixed horizon fog calculation in geoclipmap.vshader: Replaced homogeneous
+       clip-space gl_Position.z with world-space distance from camera
+       length(gl_ModelViewMatrixInverse[3].xyz - gl_Vertex.xyz). Distant islands
+       and mountains now blend seamlessly into atmospheric horizon fog.
+    5) Added ambient lighting term to geoclipmap.fshader to ensure shaded terrain
+       retains natural contrast without rendering pitch-black.
+    6) Restored viewport in water::refltex_render_unbind() on non-FBO fallback paths.
+    7) Removed AltiVec path from matrix4 operator* in favor of compiler FMA scalar
+       instructions, eliminating any unaligned 16-byte vector load risks.
 
-* WIDESCREEN DISPLAY FILL & ASPECT RATIO:
-  - Added "Breitbild voll ausfüllen" / "Fill widescreen display" option to Video Options
-    (enabled by default).
-  - Eliminates black pillarbox side bars on 16:9 and 16:10 monitors: All 2D screens, menus,
-    gauges, map, TDC, torpedo room, logbook, damage status, and UZO now fill the full width of
-    the display.
-  - Fixed 3D periscope projection alignment: The 3D periscope viewport now dynamically tracks
-    res_area_2d coordinates, ensuring the circular periscope view aligns with the background
-    overlay in both 4:3 and full widescreen modes.
+* FRENCH ACCENTS & GERMAN UMLAUTS FIX:
+  - Fixed font character rendering for French, German, Spanish, and Italian:
+    1) Switched widget theme default font to font_vtremington14: The previous font
+       (font_typenr16) was missing 138 out of 223 Latin-1 glyphs, causing all
+       French accents (é, è, ê, à, â, ç, Ç, É, î, ï, ô, ù, û) and German umlauts
+       (ä, ö, ü, Ä, Ö, Ü, ß) to render as empty blank spaces in menus and UI.
+       font_vtremington14 provides full Latin-1 character coverage while preserving
+       the authentic vintage mechanical typewriter aesthetic.
+    2) Implemented font fallback mechanism in class font: When a font is missing
+       specific glyphs (width/height == 0), rendering automatically delegates to
+       the designated fallback font (font_vtremington14 -> font_arial).
+    3) Added support for non-breaking spaces (0xA0 / &nbsp;) in font::print_text,
+       font::get_size, and font::get_char_width (common in French typography).
+    4) Added automatic mapping of 3-byte UTF-8 punctuation (en-dashes, em-dashes,
+       smart quotes) to standard ASCII in font::read_character.
+    5) Replaced non-Latin-1 ligature 'œ' with 'oe' ("noeuds") in common.csv.
 
-Version 0.3.900-mesa-r8 (2026-10-14)
-------------------------------------
-* FULLSCREEN MODE & IN-GAME VIDEO OPTIONS:
-  - Added Fullscreen mode toggle checkbox in the Video Options menu ("Vollbildmodus" /
-    "Fullscreen mode") alongside VSync, texture compression, and FPS display.
-  - Dynamic live mode switching: Toggling the checkbox in Video Options immediately
-    switches between windowed mode and borderless fullscreen desktop without restarting.
-  - Restoring windowed mode: Automatically restores the user's preferred window
-    resolution (e.g. 1024x768) and centers the window on the Workbench screen.
-  - Command-line support: Added '--fullscreen' and improved '--nofullscreen' arguments.
-  - Config persistence: The 'fullscreen' option is now properly loaded from config file
-    on startup, and Video Options settings are immediately saved to disk.
 
-Version 0.3.900-mesa-r7 (2026-10-14)
-------------------------------------
-* FIX 100% CPU LOCKUP & FREEZE ON IN-GAME EXIT / ESC / WINDOW CLOSE:
-  - Fixed 100% CPU freeze when quitting from within a game mission (via window close
-    gadget or [Esc] -> "Quit Mission"):
-    1) Convoy mission loop: In create_convoy_mission(), missing break statement after
-       run_game() caused the outer while(true) loop to re-enter w.run(). When quit was
-       requested, the loop spun at 100% CPU re-triggering start game without delay.
-    2) Widget return value: widget::run() now resets retval = -1 on entry and returns 0
-       immediately when sys().is_quit_requested() is set. This prevents stale button
-       click return values (e.g. "Start Game") from persisting across loop iterations.
-    3) Message queue destructor: Removed the dangerous while (!ackqueueempty) infinite
-       wait loop in message_queue::~message_queue(). All queues are now directly cleared
-       and both condition variables signaled.
-    4) Message queue send safety: Replaced unbounded while(true) wait in
-       message_queue::send() with timed waits (200ms) and sys().is_quit_requested()
-       checks, ensuring sound/music commands never spin at 100% CPU or freeze if the
-       audio thread is shutting down.
-    5) Result screens: Added quit checks to show_results_for_game(), check_for_highscore(),
-       and show_halloffame() to cleanly bypass subsequent screens when closing the window.
-    6) Particle system: Added safety check in particle::deinit() to prevent unsigned
-       init_count underflow during shutdown.
+Version 0.3.900-mesa-r10 (2026-10-14)
+-------------------------------------
+* MAP VIEW ZOOM CRASH FIX:
+  - Fixed crash (Grim Reaper / freeze) when zooming in or dragging the tactical map:
+    1) Fixed missing 'break' in map_display event handling: Mouse motion events
+       previously fell through into key event dispatch with uninitialized data,
+       causing erratic zoom and mode toggling.
+    2) Fixed vertex array explosion in primitives::circle: Clamped circle rendering
+       segments to [16, 360] and guarded against non-positive radii. Prevents
+       hundreds of thousands of vertices from exhausting memory during map zoom.
+    3) Fixed invalid vector indexing in coastsegment::generate_point_cache: Added
+       strict boundary and cycle checks for coastline polygon extraction, and
+       guarded triangulation to require valid point vectors.
+    4) Added coordinate clipping in coastmap::draw_as_map to prevent out-of-bounds
+       segment array access.
+
+* WATER GRAPHICS CORRUPTION FIX (AltiVec / AmigaOne X1000):
+  - Fixed corrupt water surface with dark horizontal rectangular blocks/stripes on
+    AltiVec-equipped machines (P.A. Semi PA6T / AmigaOne X1000):
+    1) Corrected AltiVec inverse square root operand order: PowerPC AltiVec vnmsubfp
+       computes vB - (vA * vC). Fixed operand order in altivec_rsqrt_vec so the
+       Newton-Raphson refinement properly computes (1.5 - 0.5 * v * est^2) instead
+       of corrupting normal lengths.
+    2) Switched water normal computation to the robust PowerPC hardware frsqrte
+       scalar pipeline, avoiding 4-float over-reads on packed 3-float vectors and
+       ensuring 100% identical, pristine normal maps on both X1000 and X5000.
+    3) Unified geoclipmap vertex row generation across all tile lines.
+    4) Strictly clipped terrain at or below sea level (<= 0.0) in geoclipmap.fshader
+       when above water, preventing sea-level terrain tiles from rendering on top
+       of the ocean surface.
+
+* TOOLCHAIN & BUILD:
+  - Recompiled Release and Debug binaries using GCC 15 (adtools 15.3.0 DWARF-2)
+    in cross-compilation Docker container.
+
 
 Version 0.3.900-mesa-r6 (2026-10-13)
 ------------------------------------
@@ -175,72 +192,84 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 [DE] DEUTSCH
 ===============================================================================
 
-Version 0.3.900-mesa-r9 (14.10.2026)
-------------------------------------
-* AUFLÖSUNGSWECHSEL IM VOLLBILDMODUS:
-  - Auflösungswechsel im Vollbildmodus behoben: Zuvor war SDL_WINDOW_FULLSCREEN_DESKTOP
-    fest verdrahtet, wodurch der Grafiktreiber die Auflösung nicht physisch umschaltete
-    und die gewählte Auflösung auf die Desktop-Auflösung (z.B. 1920x1080) zurückgesetzt wurde.
-  - display_set_mode() implementiert: Schaltet über SDL_SetWindowDisplayMode und
-    SDL_WINDOW_FULLSCREEN bei Wahl abweichender Auflösungen (z.B. 1024x768, 1280x720,
-    1280x1024) den echten Hardware-Videomodus auf AmigaOS 4 / Warp3D Nova um. Bei Wahl der
-    Desktop-Auflösung wird für maximale Performance der randlose Desktop-Modus verwendet.
-  - Sofortige Speicherung: Das Ändern der Auflösung im Menü wird nun direkt in der
-    Konfigurationsdatei auf Festplatte gesichert.
-  - Verbesserte Auflösungsauswahl: Duplikate werden bereinigt und Standardauflösungen
-    (800x600, 1024x768, 1280x720, 1280x1024, 1920x1080) stehen zuverlässig zur Auswahl.
+Version 0.3.900-mesa-r11 (14.10.2026)
+--------------------------------------
+* KORREKTUR DER WASSER- UND HORIZONT-GRAFIKFEHLER:
+  - Vollstaendige Beseitigung der prozeduralen Gelaendebloecke auf dem offenen Meer:
+    1) height_generator_map::generate_patch korrigiert: Verhindert, dass das
+       prozedurale Gauss-Rauschen den Meeresboden (negative Tiefen) ueber den
+       Meeresspiegel (> 0.0m) anhebt. Ozean-Vertices werden jetzt strikt auf
+       <= -1.0m begrenzt, sodass im Meer keinerlei schwebende Gelaendekacheln
+       mehr entstehen koennen.
+    2) Land-Vertices (Hoehe > 0.0m) werden auf >= +0.5m gehalten, was saubere,
+       natuerliche Kuestenlinien ohne Kantenflimmern gewaehrleistet.
+    3) Parameter above_water in terrain_manager korrigiert: Von 'bool' auf 'int'
+       umgestellt, damit Unterwasser-Modi (-1) nicht faelschlicherweise als 'true'
+       interpretiert werden.
+    4) Horizont-Nebel in geoclipmap.vshader korrigiert: Der fehlerhafte Clip-Space-
+       Wert gl_Position.z wurde durch den realen Welt-Abstand zur Kamera ersetzt
+       length(gl_ModelViewMatrixInverse[3].xyz - gl_Vertex.xyz). Entfernte Inseln
+       gehen nun nahtlos in den Horizontdunst ueber.
+    5) Ambient-Beleuchtung in geoclipmap.fshader ergaenzt, sodass beschattetes
+       Gelaende natuerlich ausgeleuchtet wird und nicht pechschwarz wirkt.
+    6) Viewport-Wiederherstellung in water::refltex_render_unbind() ergaenzt.
+    7) AltiVec-Pfad in matrix4 operator* zugunsten hochoptimierter skalarer
+       FMA-Befehle entfernt, um ungerichtete 16-Byte-Vektorladefehler auszuschliessen.
 
-* BREITBILD-VOLLBILD & SEITENVERHÄLTNIS:
-  - Neue Option "Breitbild voll ausfüllen" / "Fill widescreen display" in den Video-Optionen
-    integriert (standardmäßig aktiv).
-  - Beseitigt schwarze Seitenbalken (Pillarboxing) auf 16:9 und 16:10 Breitbildmonitoren:
-    Alle 2D-Ansichten, Menüs, Armaturen/Gauges, Seekarte, TDC, Torpedoraum, Kriegstagebuch,
-    Schadensstatus und UZO nutzen nun die volle Bildschirmbreite.
-  - 3D-Sehrohr-Ausrichtung korrigiert: Das 3D-Sehrohr-Sichtfeld passt sich dynamisch an
-    res_area_2d an, sodass der runde Sehrohr-Ausschnitt sowohl im klassischen 4:3-Modus als
-    auch im vollflächigen Breitbildmodus exakt mit der 2D-Maske übereinstimmt.
+* KORREKTUR DER FRANZOESISCHEN AKZENTE & DEUTSCHEN UMLAUTE:
+  - Fehlerfreie Schrift- und Textdarstellung in allen Menues und der Benutzeroberflaeche:
+    1) Widget-Themen-Schriftart auf font_vtremington14 umgestellt: Der bisherige
+       Font (font_typenr16) enthielt fuer 138 von 223 Zeichen keine Glyphen, wodurch
+       alle franzoesischen Akzente (é, è, ê, à, â, ç, Ç, É, î, ï, ô, ù, û) sowie
+       deutsche Umlaute (ä, ö, ü, Ä, Ö, Ü, ß) als leere Luecken dargestellt wurden.
+       font_vtremington14 bietet vollstaendige Latin-1-Abdeckung bei identischem
+       historischem Schreibmaschinen-Schriftbild.
+    2) Font-Fallback-Mechanismus in Klasse font implementiert: Fehlende Zeichen
+       werden automatisch aus der konfigurierten Fallback-Schriftart geladen
+       (font_vtremington14 -> font_arial).
+    3) Unterstuetzung fuer geschuetzte Leerzeichen (0xA0 / &nbsp;) ergaenzt
+       (wichtig fuer franzoesische Typographie vor Doppelpunkten).
+    4) Automatische Umsetzung von 3-Byte-UTF-8-Sonderzeichen (Gedankenstriche,
+       typographische Anfuehrungszeichen) in font::read_character.
+    5) Sonder-Ligatur 'œ' in common.csv durch standardkonformes 'oe' ("noeuds") ersetzt.
 
-Version 0.3.900-mesa-r8 (14.10.2026)
-------------------------------------
-* VOLLBILDMODUS & OPTIONEN-MENÜ:
-  - Vollbild-Umschaltfunktion im Video-Optionen-Menü hinzugefügt ("Vollbildmodus" /
-    "Fullscreen mode") neben V-Sync, Texturkompression und FPS-Anzeige.
-  - Dynamisches Live-Umschalten: Das Ändern der Option im Menü schaltet direkt zwischen
-    Fenstermodus und randlosem Vollbild-Desktop um, ohne das Spiel neu starten zu müssen.
-  - Rückkehr zum Fenstermodus: Stellt beim Deaktivieren des Vollbildmodus automatisch die
-    bevorzugte Fensterauflösung (z.B. 1024x768) wieder her und zentriert das Fenster auf
-    dem Workbench-Bildschirm.
-  - Kommandozeilen-Parameter: Unterstützung für '--fullscreen' hinzugefügt und
-    '--nofullscreen' optimiert.
-  - Konfigurationsspeicherung: Die Einstellung 'fullscreen' wird nun beim Spielstart
-    korrekt aus der Konfigurationsdatei geladen und Änderungen im Video-Menü werden
-    sofort auf Festplatte gesichert.
 
-Version 0.3.900-mesa-r7 (14.10.2026)
-------------------------------------
-* BEHEBUNG VON 100% CPU-LAST & FREEZE BEIM BEENDEN / ESC / FENSTER SCHLIESSEN:
-  - 100% CPU-Last und Freeze beim Beenden aus einer laufenden Mission (ueber das
-    Fenster-Schliessgadget oder ueber [Esc] -> "Feindfahrt beenden") vollstaendig behoben:
-    1) Geleitschutz-Missionsschleife: In create_convoy_mission() fehlte nach dem
-       Aufruf von run_game() ein 'break;', wodurch die aeussere while(true)-Schleife
-       wieder in w.run() eintrat. Bei gesetzter Beenden-Anforderung geriet die Schleife
-       in einen ungebremsten 100% CPU-Spin, der das Spiel ohne Verzoegerung neu startete.
-    2) Widget-Rueckgabewert: widget::run() initialisiert 'retval' nun zu Beginn auf -1
-       und gibt bei gesetztem sys().is_quit_requested() sofort 0 zurueck. Dies verhindert,
-       dass alte Button-Rueckgabewerte (wie "Spiel starten" = 2) ueber Schleifendurchlaeufe
-       hinweg faelschlicherweise aktiv bleiben.
-    3) Message-Queue-Destruktor: Die gefaehrliche Endlos-Warteschleife while (!ackqueueempty)
-       in message_queue::~message_queue() wurde entfernt. Alle Warteschlangen werden nun
-       beim Zerstoeren direkt geleert und beide Condition-Variables signalisiert.
-    4) Absicherung von message_queue::send(): Die unbegrenzte while(true)-Schleife in
-       message_queue::send() durch zeitbegrenztes Warten (200ms) mit Abfrage von
-       sys().is_quit_requested() abgesichert. Verhindert 100% CPU-Spins oder Haenger,
-       falls der Audio-Thread gerade herunterfaehrt.
-    5) Ergebnis- und Highscore-Bildschirme: Abfragen auf is_quit_requested() in
-       show_results_for_game(), check_for_highscore() und show_halloffame() integriert,
-       um nachfolgende Dialoge beim Schliessen des Fensters sauber zu ueberspringen.
-    6) Partikelsystem: particle::deinit() gegen vorzeichenlosen Unterlauf (init_count == 0)
-       beim Beenden abgesichert.
+Version 0.3.900-mesa-r10 (14.10.2026)
+--------------------------------------
+* ABSTURZBEHEBUNG BEIM KARTEN-ZOOM (MAP VIEW):
+  - Absturz (Grim Reaper / Einfrieren) beim Hereinzoomen oder Verschieben der
+    taktischen Karte behoben:
+    1) Fehlendes 'break' im Eingabe-Handler von map_display behoben: Mausbewegungen
+       sind zuvor faelschlicherweise in die Tasteneingabe gerutscht und haben
+       mit uninitialisierten Daten unkontrolliertes Zoomen und Umschalten ausgeloest.
+    2) Vertex-Explosion in primitives::circle behoben: Anzahl der Kreis-Segmente
+       auf [16, 360] begrenzt und Schutz vor negativen/Null-Radien ergaenzt.
+       Verhindert, dass beim Zoomen hunderttausende Vertices den Speicher ueberlasten.
+    3) Segment-Array-Zugriffsfehler in coastsegment::generate_point_cache behoben:
+       Strenge Bereichs- und Schleifenpruefungen fuer Kuestenlinien-Segmente (cl.next)
+       eingefuehrt sowie Dreiecks-Triangulierung gegen leere Punktlisten abgesichert.
+    4) Koordinaten-Begrenzungspruefung in coastmap::draw_as_map ergaenzt, um
+       Zugriffe ausserhalb der Kartensegmente zu verhindern.
+
+* GRAFIKFEHLER BEI DER WASSERDARSTELLUNG BEHOBEN (AltiVec / AmigaOne X1000):
+  - Dunkle horizontale Kacheln/Balken auf der Wasseroberflaeche auf AltiVec-
+    Systemen (P.A. Semi PA6T / AmigaOne X1000) behoben:
+    1) AltiVec vnmsubfp Operanden-Reihenfolge korrigiert: PowerPC AltiVec vnmsubfp
+       berechnet vB - (vA * vC). Operanden in altivec_rsqrt_vec korrigiert, sodass
+       der Newton-Raphson-Schritt (1.5 - 0.5 * v * est^2) fehlerfrei berechnet
+       wird, anstatt Normalenvektoren mit falschen Laengen zu erzeugen.
+    2) Normalen-Berechnung auf bewaehrte, hardware-beschleunigte PowerPC frsqrte
+       FPU-Pipeline umgestellt: Verhindert 4-Float-Ueberleser auf 3-Float-Vektoren
+       und garantiert identische, perfekte Normalen auf X1000 und X5000.
+    3) Geoclipmap Vertex-Zeilenberechnung ueber alle Kachelzeilen vereinheitlicht.
+    4) Terrain auf oder unter Meereshoehe (<= 0.0) im geoclipmap.fshader ueber
+       Wasser strikt ausgeblendet, sodass flache Meeresbodenkacheln nicht mehr
+       ueber die Wasseroberflaeche gezeichnet werden.
+
+* TOOLCHAIN & BUILD:
+  - Release- und Debug-Binaerdateien mit GCC 15 (adtools 15.3.0 DWARF-2) im
+    Docker-Container fuer AmigaOS 4.1 kompiliert und verifiziert.
+
 
 Version 0.3.900-mesa-r6 (13.10.2026)
 ------------------------------------

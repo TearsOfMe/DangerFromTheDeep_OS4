@@ -68,11 +68,12 @@ global_data::~global_data() {
     font_jphsl = nullptr;
     font_vtremington10 = nullptr;
     font_vtremington12 = nullptr;
+    font_vtremington14 = nullptr;
     font_typenr16 = nullptr;
 }
 
 font *font_arial = 0, *font_jphsl = 0, *font_vtremington10 = 0, *font_vtremington12 = 0,
-     *font_typenr16 = 0;
+     *font_vtremington14 = 0, *font_typenr16 = 0;
 
 // Helper to draw filled rectangles in 2D OpenGL mode
 static void draw_loading_rect(float x, float y, float w, float h, const colorf &col) {

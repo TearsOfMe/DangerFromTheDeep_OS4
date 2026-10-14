@@ -1302,7 +1302,7 @@ void water::refltex_render_unbind() const {
         reflectiontex->set_gl_texture();
         glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0,
                          reflectiontex->get_width(), reflectiontex->get_height(), 0);
-        // ^ glCopyTexSubImage may be faster! but we use FBOs anyway on modern cards...
+        glViewport(0, 0, sys().get_res_x(), sys().get_res_y());
     }
 }
 

@@ -89,7 +89,7 @@ void font::print_text(int x, int y, const string &text, bool ignore_colors) cons
         if (c == invalid_utf8_char) {
             continue;
         }
-        if (c == ' ') { // space
+        if (c == ' ' || c == 0xA0) { // space or non-breaking space
             x += blank_width;
         } else if (c == '\n') { // return
             x = xs;
@@ -116,15 +116,22 @@ void font::print_text(int x, int y, const string &text, bool ignore_colors) cons
                 print_cache();
                 shader->set_uniform(loc_color, color(nr[0] * 16 + nr[1], nr[2] * 16 + nr[3], nr[4] * 16 + nr[5]));
             }
-        } else if (unsigned(c) >= first_char && unsigned(c) <= last_char) {
+        } else if (unsigned(c) >= first_char && unsigned(c) <= last_char &&
+                   characters[unsigned(c) - first_char].width > 0 &&
+                   characters[unsigned(c) - first_char].height > 0) {
             unsigned t = unsigned(c) - first_char;
-            // note: real width in contiguous text is width+left, so advance x by that value
-            // and draw at x+left. must be changed everywhere where we are handling
-            // text widths. maybe it is ok as it is now.
-            // int x2 = x + characters[t].left;
             int y2 = y + base_height - characters[t].top;
             add_to_cache(x, y2, t);
             x += characters[t].width + spacing;
+        } else if (fallback_font) {
+            print_cache();
+            fallback_font->shader->use();
+            fallback_font->shader->set_gl_texture(*(fallback_font->character_texture), fallback_font->loc_tex, 0);
+            fallback_font->print_text(x, y + int(base_height) - int(fallback_font->base_height), font::to_utf8(c), ignore_colors);
+            fallback_font->print_cache();
+            shader->use();
+            shader->set_gl_texture(*character_texture, loc_tex, 0);
+            x += fallback_font->get_char_width(c) + spacing;
         } // else: just skip (unknown) character
     }
 }
@@ -313,7 +320,7 @@ vector2i font::get_size(const string &text) const {
         if (c == invalid_utf8_char) {
             continue;
         }
-        if (c == ' ') { // space
+        if (c == ' ' || c == 0xA0) { // space or non-breaking space
             x += blank_width;
         } else if (c == '\n') { // return
             x = 0;
@@ -337,9 +344,12 @@ vector2i font::get_size(const string &text) const {
             }
             (void)nr; // color info parsed, reserved for future use
             --ti;     // compensate for(...++ti)
-        } else if (unsigned(c) >= first_char && unsigned(c) <= last_char) {
+        } else if (unsigned(c) >= first_char && unsigned(c) <= last_char &&
+                   characters[unsigned(c) - first_char].width > 0) {
             unsigned t = unsigned(c) - first_char;
             x += characters[t].width + spacing;
+        } else if (fallback_font) {
+            x += fallback_font->get_char_width(c) + spacing;
         } // else: ignore (unknown) character
         if (x > xmax)
             xmax = x;
@@ -416,13 +426,17 @@ std::pair<unsigned, unsigned> font::get_nr_of_lines_wrapped(unsigned w, const st
 }
 
 unsigned font::get_char_width(unsigned c) const {
-    if (c == ' ') {
+    if (c == ' ' || c == 0xA0) {
         return blank_width;
     } else if (c >= first_char && c <= last_char) {
-        return characters[unsigned(c) - first_char].width;
-    } else {
-        return 0;
+        unsigned w = characters[unsigned(c) - first_char].width;
+        if (w > 0)
+            return w;
     }
+    if (fallback_font) {
+        return fallback_font->get_char_width(c);
+    }
+    return 0;
 }
 
 unsigned font::character_left(const std::string &text, unsigned cp) {
@@ -495,8 +509,13 @@ unsigned font::read_character(const std::string &text, unsigned cp) {
             if (cp + 2 < text.length()) {
                 unsigned c2 = text[cp + 1];
                 unsigned c3 = text[cp + 2];
-                // combine bytes to 8bit character
-                return (unsigned(c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+                // combine bytes to character
+                unsigned val = (unsigned(c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+                if (val == 0x2013 || val == 0x2014) return '-';
+                if (val == 0x2018 || val == 0x2019) return '\'';
+                if (val == 0x201C || val == 0x201D) return '"';
+                if (val == 0x00AB || val == 0x00BB) return '"';
+                return val;
             }
         }
         // fourbyte or invalid utf-8 character

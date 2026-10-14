@@ -104,7 +104,7 @@ inline objcachet<class texture> &texturecache() { return global_data::instance()
 
 // only used as shortcut, fonts are managed by class system
 extern class font *font_arial, *font_jphsl, *font_vtremington10,
-    *font_vtremington12, *font_typenr16;
+    *font_vtremington12, *font_vtremington14, *font_typenr16;
 
 // display loading progress
 void reset_loading_screen(const std::string &initial_msg = "", int expected_steps = 10);

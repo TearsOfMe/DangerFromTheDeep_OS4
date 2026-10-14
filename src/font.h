@@ -50,6 +50,7 @@ class font {
     unsigned base_height, height;   // base height and real height
     unsigned spacing;               // additional character spacing
     unsigned blank_width;           // width of blank character
+    const font *fallback_font = nullptr; // fallback font for missing characters
 
     void print_text(int x, int y, const std::string &text, bool ignore_colors = false) const;
     void print_plain(int x, int y, const std::string &text, color col, bool with_shadow) const;
@@ -100,6 +101,8 @@ class font {
     std::pair<unsigned, unsigned> get_nr_of_lines_wrapped(unsigned w, const std::string &text, unsigned maxlines = 0) const;
     unsigned get_char_width(unsigned c) const;
     unsigned get_height() const { return height; }
+    void set_fallback(const font *f) { fallback_font = f; }
+    const font *get_fallback() const { return fallback_font; }
 
     // common functions for working with UTF-8 strings
     static unsigned character_left(const std::string &text, unsigned cp);

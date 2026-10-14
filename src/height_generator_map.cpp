@@ -122,7 +122,22 @@ bivector<float> height_generator_map::generate_patch(int detail, const vector2i 
         vector2i offset(2 + (coord_bl.x & 1), 2 + (coord_bl.y & 1));
         // giving smooth_upsample the subarea already would be handy...
         bivector<float> v = generate_patch(detail + 1, coord2_bl, coord2_sz).smooth_upsampled().sub_area(offset, coord_sz);
-        v.add_shifted(noisemaps[detail + 3], coord_bl);
+        const bivector<float> &noise = noisemaps[detail + 3];
+        const int nmask_x = noise.size().x - 1;
+        const int nmask_y = noise.size().y - 1;
+        for (int y = 0; y < coord_sz.y; ++y) {
+            for (int x = 0; x < coord_sz.x; ++x) {
+                float h = v.at(x, y);
+                float n = noise.at((coord_bl.x + x) & nmask_x, (coord_bl.y + y) & nmask_y);
+                if (h <= 0.0f) {
+                    // Ocean: never allow procedural noise to breach sea level!
+                    v.at(x, y) = std::min(h + n, -1.0f);
+                } else {
+                    // Land: allow height variation, but keep above sea level
+                    v.at(x, y) = std::max(h + n, 0.5f);
+                }
+            }
+        }
         return v;
     } else if (detail == int(subdivision_steps)) {
         return height_data.sub_area(coord_bl - mapoff, coord_sz);
