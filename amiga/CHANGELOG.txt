@@ -9,6 +9,32 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r17 (2026-10-14)
+-------------------------------------
+* NAVIGATION MAP SCROLLING & PANNING, MOUSE WHEEL ZOOM ACROSS MAP, PERISCOPE & UZO:
+  - Navigation Map Scrolling & Panning:
+    1) Built intuitive map panning: Holding the Left Mouse Button or Middle Mouse Button now drags
+       and pans the sea map smoothly and naturally in 1:1 sync with the mouse pointer.
+    2) Intelligent vessel selection: Short left clicks without drag continue to select target ships
+       within a 48-pixel radius. Panning the map no longer triggers unwanted target switches.
+    3) Keyboard map navigation: Implemented map scrolling via Arrow Keys (Up, Down, Left, Right)
+       and Numpad (8, 2, 4, 6, 7, 9, 1, 3). Holding Shift accelerates panning by 4x.
+    4) Quick re-center: Pressing Space or 'C' instantly snaps the map view back to the player's submarine.
+    5) Middle mouse click: Centers the map view on the clicked world position.
+  - Mouse Wheel Zooming in Periscope & UZO:
+    1) Periscope (F2): Mouse wheel scroll up now zooms in (6.0x magnification, 13° FOV), scroll down
+       zooms out (1.5x magnification, 50° FOV). Middle-click toggles zoom.
+    2) UZO (F3): Fixed bug where mouse wheel scroll called freeview_display and moved the camera off the
+       bridge into the sea. Scrolling up now zooms to 6.0x, scrolling down zooms to 1.5x, middle-click toggles.
+  - Mouse Wheel Zooming on Navigation Map (F5):
+    Implemented smart cursor-centered mouse wheel zooming. Scrolling the mouse wheel zooms directly
+    toward/from the geographical position under the mouse pointer.
+  - Unified AmigaOS SDL2 wheel input:
+    Mapped SDL_MOUSEWHEEL, high-precision wheel values, and mouse buttons 4/5 (WHEELUP/WHEELDOWN)
+    so all wheel mice on AmigaOS 4 trigger zoom reliably.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
 Version 0.3.900-mesa-r16 (2026-10-14)
 -------------------------------------
 * GRAPHICS OPTIMIZATION, VSYNC RUNTIME CONTROL & CONFIGURABLE FPS LIMITER:
@@ -302,6 +328,32 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r17 (14.10.2026)
+---------------------------------------
+* SEEKARTEN-SCROLLING & PANNING, MAUSRAD-ZOOM FUER KARTE, PERISKOP & UZO:
+  - Seekarten-Scrolling und Panning:
+    1) Intuitives Karten-Verschieben: Durch Gedrueckthalten der linken oder mittleren Maustaste laesst sich
+       die Seekarte nun voellig natuerlich und ruckelfrei 1:1 mit dem Mauszeiger verschieben (Pan/Drag).
+    2) Intelligente Zielauswahl: Ein kurzer Linksklick ohne Mausbewegung waehlt weiterhin Schiffe in einem
+       48-Pixel-Radius an. Beim Verschieben der Karte wird nicht mehr versehentlich ein neues Ziel gesetzt.
+    3) Tastatur-Karten-Navigation: Scrolling per Pfeiltasten (Hoch, Runter, Links, Rechts) und Numpad
+       (8, 2, 4, 6, 7, 9, 1, 3) eingebaut. Gedruecktes Shift vervierfacht die Scroll-Geschwindigkeit.
+    4) Sofortige Zentrierung: Leertaste oder Taste 'C' zentriert die Karte sofort wieder auf das eigene U-Boot.
+    5) Mittlerer Mausklick: Zentriert die Ansicht direkt auf die angeklickte Position.
+  - Mausrad-Zoom im Periskop & UZO:
+    1) Periskop (F2): Mausrad nach oben schaltet auf 6-fache Vergroesserung (13° Sichtfeld), Mausrad nach
+       unten schaltet zurueck auf 1.5-fache Weitwinkel-Optik (50°). Klick mit mittlerer Maustaste wechselt Zoom.
+    2) UZO (F3): Fehler behoben, bei dem das Mausrad die Freeview-Kamera bewegte und den Spieler von der
+       Bruecke ins Meer schob. Mausrad schaltet nun sauber zwischen 6.0x und 1.5x um, Mittelklick toggelt Zoom.
+  - Mausrad-Zoom auf der Seekarte (F5):
+    Mausrad-Zoom mit Fokus auf den Mauszeiger implementiert. Die Karte zoomt nun exakt an der Position
+    herein bzw. heraus, auf die der Mauszeiger gerade zeigt.
+  - Vereinheitlichter AmigaOS-SDL2-Mausrad-Treiber:
+    Sowohl SDL_MOUSEWHEEL, High-Precision-Werte als auch Maustasten 4 und 5 (WHEELUP/WHEELDOWN) werden nun
+    einheitlich ausgewertet, sodass saemtliche Amiga-Maeuse und Treiber zuverlaessig zoomen.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
 
 Version 0.3.900-mesa-r16 (14.10.2026)
 ---------------------------------------

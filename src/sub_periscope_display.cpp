@@ -197,6 +197,18 @@ void sub_periscope_display::process_input(class game &gm, const game_event &even
             zoomed = false;
         }
         return;
+    case event_type::MOUSE_BUTTON_DOWN:
+        if (event.button_button == MOUSE_BUTTON_WHEELUP) {
+            zoomed = true;
+            return;
+        } else if (event.button_button == MOUSE_BUTTON_WHEELDOWN) {
+            zoomed = false;
+            return;
+        } else if (event.button_button == MOUSE_BUTTON_MIDDLE) {
+            zoomed = !zoomed;
+            return;
+        }
+        break;
     case event_type::MOUSE_MOTION:
         if (event.motion_state & MOUSE_BUTTON_LMASK) {
             if (event.motion_yrel != 0) {

@@ -290,21 +290,60 @@ game_event sdl_to_game(const SDL_Event& e) {
         ge.motion_state = e.motion.state;
         break;
     case SDL_MOUSEBUTTONDOWN:
-        ge.type = event_type::MOUSE_BUTTON_DOWN;
-        ge.button_button = e.button.button;
-        ge.button_x = e.button.x;
-        ge.button_y = e.button.y;
+        if (e.button.button == 4) { // SDL_BUTTON_WHEELUP (button 4)
+            ge.type = event_type::MOUSE_WHEEL;
+            ge.button_button = 4;
+            ge.button_x = e.button.x;
+            ge.button_y = e.button.y;
+            ge.wheel_x = 0.0f;
+            ge.wheel_y = 1.0f;
+        } else if (e.button.button == 5) { // SDL_BUTTON_WHEELDOWN (button 5)
+            ge.type = event_type::MOUSE_WHEEL;
+            ge.button_button = 5;
+            ge.button_x = e.button.x;
+            ge.button_y = e.button.y;
+            ge.wheel_x = 0.0f;
+            ge.wheel_y = -1.0f;
+        } else {
+            ge.type = event_type::MOUSE_BUTTON_DOWN;
+            ge.button_button = e.button.button;
+            ge.button_x = e.button.x;
+            ge.button_y = e.button.y;
+        }
         break;
     case SDL_MOUSEBUTTONUP:
-        ge.type = event_type::MOUSE_BUTTON_UP;
-        ge.button_button = e.button.button;
-        ge.button_x = e.button.x;
-        ge.button_y = e.button.y;
+        if (e.button.button == 4 || e.button.button == 5) {
+            ge.type = event_type::NONE;
+        } else {
+            ge.type = event_type::MOUSE_BUTTON_UP;
+            ge.button_button = e.button.button;
+            ge.button_x = e.button.x;
+            ge.button_y = e.button.y;
+        }
         break;
     case SDL_MOUSEWHEEL:
         ge.type = event_type::MOUSE_WHEEL;
         ge.wheel_x = static_cast<float>(e.wheel.x);
         ge.wheel_y = static_cast<float>(e.wheel.y);
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+        if (ge.wheel_y == 0.0f && e.wheel.preciseY != 0.0f) {
+            ge.wheel_y = e.wheel.preciseY;
+        }
+        if (ge.wheel_x == 0.0f && e.wheel.preciseX != 0.0f) {
+            ge.wheel_x = e.wheel.preciseX;
+        }
+#endif
+#if defined(SDL_MOUSEWHEEL_FLIPPED)
+        if (e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
+            ge.wheel_x = -ge.wheel_x;
+            ge.wheel_y = -ge.wheel_y;
+        }
+#endif
+        if (ge.wheel_y > 0.0f) {
+            ge.button_button = 4;
+        } else if (ge.wheel_y < 0.0f) {
+            ge.button_button = 5;
+        }
         break;
     case SDL_WINDOWEVENT:
         if (e.window.event == SDL_WINDOWEVENT_CLOSE) {

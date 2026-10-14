@@ -41,6 +41,12 @@ class map_display : public user_display {
     vector2 mapoffset; // additional offset used for display, relative to player (meters)
     int mx, my;        // last mouse position
     int mapmode;
+    bool is_dragging;
+    int drag_start_x;
+    int drag_start_y;
+
+    void zoom_in(int center_x, int center_y);
+    void zoom_out(int center_x, int center_y);
 
     void draw_vessel_symbol(const vector2 &offset, sea_object *so, color c) const;
     void draw_trail(sea_object *so, const vector2 &offset) const;

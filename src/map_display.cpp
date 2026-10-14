@@ -262,7 +262,8 @@ void map_display::draw_square_mark_special(class game &gm,
     primitives::diamond(vector2f(512 + x, 384 - y), 8, c).render();
 }
 
-map_display::map_display(user_interface &ui_) : user_display(ui_), mapzoom(0.1), mx(0), my(0), mapmode(0),
+map_display::map_display(user_interface &ui_) : user_display(ui_), mapzoom(0.1), mx(512), my(384), mapmode(0),
+                                                is_dragging(false), drag_start_x(-1), drag_start_y(-1),
                                                 edit_btn_del(0),
                                                 edit_btn_chgmot(0),
                                                 edit_btn_copy(0),
@@ -752,6 +753,24 @@ void map_display::display(class game &gm) const {
     sys().unprepare_2d_drawing();
 }
 
+void map_display::zoom_in(int center_x, int center_y) {
+    if (mapzoom < 1.0f) {
+        float old_zoom = mapzoom;
+        mapzoom = std::min(1.0f, mapzoom * 1.5f);
+        vector2 m_rel(center_x - 512, 384 - center_y);
+        mapoffset += m_rel * (1.0f / old_zoom - 1.0f / mapzoom);
+    }
+}
+
+void map_display::zoom_out(int center_x, int center_y) {
+    if (mapzoom > 1.0f / 16384.0f) {
+        float old_zoom = mapzoom;
+        mapzoom = std::max(1.0f / 16384.0f, mapzoom / 1.5f);
+        vector2 m_rel(center_x - 512, 384 - center_y);
+        mapoffset += m_rel * (1.0f / old_zoom - 1.0f / mapzoom);
+    }
+}
+
 void map_display::process_input(class game &gm, const game_event &event) {
     sea_object *player = gm.get_player();
 
@@ -955,40 +974,34 @@ void map_display::process_input(class game &gm, const game_event &event) {
     switch (event.type) {
     case event_type::MOUSE_WHEEL:
         if (event.wheel_y > 0) {
-            if (mapzoom < 1)
-                mapzoom *= 1.25;
+            zoom_in(mx, my);
         } else if (event.wheel_y < 0) {
-            if (mapzoom > 1.0 / 16384)
-                mapzoom /= 1.25;
+            zoom_out(mx, my);
         }
         break;
 
     case event_type::MOUSE_BUTTON_DOWN:
+        if (event.button_button == MOUSE_BUTTON_WHEELUP) {
+            zoom_in(mx, my);
+            break;
+        } else if (event.button_button == MOUSE_BUTTON_WHEELDOWN) {
+            zoom_out(mx, my);
+            break;
+        } else if (event.button_button == MOUSE_BUTTON_MIDDLE) {
+            // Middle-click: center map on clicked coordinates
+            mx = sys().translate_position_x(event);
+            my = sys().translate_position_y(event);
+            mapoffset.x += (mx - 512) * (1.0 / mapzoom);
+            mapoffset.y -= (my - 384) * (1.0 / mapzoom);
+            break;
+        }
         if (event.button_button == MOUSE_BUTTON_LEFT) {
-#ifndef CVEDIT
-            // set target. get visible objects and determine which is nearest to
-            // mouse position. set target for player object
-            vector2 mapclick(sys().translate_position_x(event), sys().translate_position_y(event));
-            vector<sea_object *> objs = gm.visible_surface_objects(player);
-            double mapclickdist = 1e30;
-            sea_object *target = 0;
-            for (vector<sea_object *>::iterator it = objs.begin(); it != objs.end(); ++it) {
-                if (!(*it)->is_alive())
-                    continue;
-                vector2 p = ((*it)->get_pos().xy() -
-                             (player->get_pos().xy() + mapoffset)) *
-                            mapzoom;
-                p.x += 512;
-                p.y = 384 - p.y;
-                double clickd = mapclick.square_distance(p);
-                if (clickd < mapclickdist) {
-                    target = *it; // fixme: message?
-                    mapclickdist = clickd;
-                }
-            }
-
-            player->set_target(target);
-#else
+            mx = sys().translate_position_x(event);
+            my = sys().translate_position_y(event);
+            drag_start_x = mx;
+            drag_start_y = my;
+            is_dragging = false;
+#ifdef CVEDIT
             // move nearest cv point
             if (cvroute.size() > 0) {
                 vector2 mapclick(sys().translate_position_x(event) - 512, 384 - sys().translate_position_y(event));
@@ -1012,15 +1025,63 @@ void map_display::process_input(class game &gm, const game_event &event) {
             cvroute.push_back(real);
         }
 #endif
-
         break;
+
+    case event_type::MOUSE_BUTTON_UP:
+        if (event.button_button == MOUSE_BUTTON_LEFT) {
+#ifndef CVEDIT
+            if (!is_dragging) {
+                // Short click without drag: select nearest visible vessel within 48 pixels
+                vector2 mapclick(sys().translate_position_x(event), sys().translate_position_y(event));
+                vector<sea_object *> objs = gm.visible_surface_objects(player);
+                double mapclickdist = 48.0 * 48.0;
+                sea_object *target = 0;
+                for (vector<sea_object *>::iterator it = objs.begin(); it != objs.end(); ++it) {
+                    if (!(*it)->is_alive())
+                        continue;
+                    vector2 p = ((*it)->get_pos().xy() -
+                                 (player->get_pos().xy() + mapoffset)) *
+                                mapzoom;
+                    p.x += 512;
+                    p.y = 384 - p.y;
+                    double clickd = mapclick.square_distance(p);
+                    if (clickd < mapclickdist) {
+                        target = *it;
+                        mapclickdist = clickd;
+                    }
+                }
+                player->set_target(target);
+            }
+#endif
+            is_dragging = false;
+            drag_start_x = -1;
+            drag_start_y = -1;
+        }
+        break;
+
     case event_type::MOUSE_MOTION:
         mx = sys().translate_position_x(event);
         my = sys().translate_position_y(event);
-        if ((event.motion_state & MOUSE_BUTTON_MMASK) && (ctrl_key_pressed == 0)) {
+        if ((event.motion_state & (MOUSE_BUTTON_LMASK | MOUSE_BUTTON_MMASK)) && (ctrl_key_pressed == 0)) {
             vector2 motion = sys().translate_motion(event);
-            motion.y = -motion.y;
-            mapoffset += motion * (1.0 / mapzoom);
+            if (motion.x != 0 || motion.y != 0) {
+                if (!is_dragging && drag_start_x >= 0 && drag_start_y >= 0) {
+                    int dx = mx - drag_start_x;
+                    int dy = my - drag_start_y;
+                    if (dx * dx + dy * dy >= 16) {
+                        is_dragging = true;
+                    }
+                } else if (event.motion_state & MOUSE_BUTTON_MMASK) {
+                    is_dragging = true;
+                }
+                if (is_dragging) {
+                    // Natural map dragging:
+                    // Dragging mouse right (motion.x > 0) pulls world view right -> mapoffset.x decreases
+                    // Dragging mouse down (motion.y > 0) pulls world view down -> mapoffset.y increases
+                    mapoffset.x -= motion.x * (1.0 / mapzoom);
+                    mapoffset.y += motion.y * (1.0 / mapzoom);
+                }
+            }
         }
 #ifdef CVEDIT
         if (event.motion_state & MOUSE_BUTTON_LMASK && cvridx >= 0) {
@@ -1030,28 +1091,70 @@ void map_display::process_input(class game &gm, const game_event &event) {
         }
 #endif
         break;
+
     case event_type::KEY_DOWN:
         if (ui.get_config().getkey(KEY_ZOOM_MAP).equal(event.keysym)) {
-            if (mapzoom < 1)
-                mapzoom *= 2;
+            zoom_in(512, 384);
         } else if (ui.get_config().getkey(KEY_UNZOOM_MAP).equal(event.keysym)) {
-            if (mapzoom > 1.0 / 16384)
-                mapzoom /= 2;
-        }
-        if (event.keysym.sym == SDLK_m) {
-            mapmode++;
-            if (mapmode > 1)
-                mapmode = 0;
-        }
+            zoom_out(512, 384);
+        } else {
+            double step = (event.keysym.mod & (DFTD_KMOD_LSHIFT | DFTD_KMOD_RSHIFT)) ? (240.0 / mapzoom) : (60.0 / mapzoom);
+            switch (event.keysym.sym) {
+            case SDLK_UP:
+            case SDLK_KP_8:
+                mapoffset.y += step;
+                break;
+            case SDLK_DOWN:
+            case SDLK_KP_2:
+                mapoffset.y -= step;
+                break;
+            case SDLK_LEFT:
+            case SDLK_KP_4:
+                mapoffset.x -= step;
+                break;
+            case SDLK_RIGHT:
+            case SDLK_KP_6:
+                mapoffset.x += step;
+                break;
+            case SDLK_KP_7:
+                mapoffset.x -= step * 0.7071;
+                mapoffset.y += step * 0.7071;
+                break;
+            case SDLK_KP_9:
+                mapoffset.x += step * 0.7071;
+                mapoffset.y += step * 0.7071;
+                break;
+            case SDLK_KP_1:
+                mapoffset.x -= step * 0.7071;
+                mapoffset.y -= step * 0.7071;
+                break;
+            case SDLK_KP_3:
+                mapoffset.x += step * 0.7071;
+                mapoffset.y += step * 0.7071;
+                break;
+            case SDLK_SPACE:
+            case SDLK_c:
+                // Re-center map on player
+                mapoffset = vector2(0, 0);
+                break;
+            case SDLK_m:
+                mapmode++;
+                if (mapmode > 1)
+                    mapmode = 0;
+                break;
 #ifdef CVEDIT
-        if (event.keysym.sym == SDLK_w) {
-            cout << "Current cv route:\n\n";
-            for (unsigned i = 0; i < cvroute.size(); ++i) {
-                cout << "\t<waypoint x=\"" << cvroute[i].x << "\" y=\"" << cvroute[i].y
-                     << "\" />\n";
+            case SDLK_w:
+                cout << "Current cv route:\n\n";
+                for (unsigned i = 0; i < cvroute.size(); ++i) {
+                    cout << "\t<waypoint x=\"" << cvroute[i].x << "\" y=\"" << cvroute[i].y
+                         << "\" />\n";
+                }
+                break;
+#endif
+            default:
+                break;
             }
         }
-#endif
         break;
     default:
         break;

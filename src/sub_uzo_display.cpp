@@ -152,6 +152,18 @@ void sub_uzo_display::process_input(class game &gm, const game_event &event) {
         } else if (event.wheel_y < 0) {
             zoomed = false;
         }
+        return;
+    case event_type::MOUSE_BUTTON_DOWN:
+        if (event.button_button == MOUSE_BUTTON_WHEELUP) {
+            zoomed = true;
+            return;
+        } else if (event.button_button == MOUSE_BUTTON_WHEELDOWN) {
+            zoomed = false;
+            return;
+        } else if (event.button_button == MOUSE_BUTTON_MIDDLE) {
+            zoomed = !zoomed;
+            return;
+        }
         break;
     default:
         break;
