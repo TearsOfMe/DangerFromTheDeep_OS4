@@ -9,6 +9,29 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r7 (2026-10-14)
+------------------------------------
+* FIX 100% CPU LOCKUP & FREEZE ON IN-GAME EXIT / ESC / WINDOW CLOSE:
+  - Fixed 100% CPU freeze when quitting from within a game mission (via window close
+    gadget or [Esc] -> "Quit Mission"):
+    1) Convoy mission loop: In create_convoy_mission(), missing break statement after
+       run_game() caused the outer while(true) loop to re-enter w.run(). When quit was
+       requested, the loop spun at 100% CPU re-triggering start game without delay.
+    2) Widget return value: widget::run() now resets retval = -1 on entry and returns 0
+       immediately when sys().is_quit_requested() is set. This prevents stale button
+       click return values (e.g. "Start Game") from persisting across loop iterations.
+    3) Message queue destructor: Removed the dangerous while (!ackqueueempty) infinite
+       wait loop in message_queue::~message_queue(). All queues are now directly cleared
+       and both condition variables signaled.
+    4) Message queue send safety: Replaced unbounded while(true) wait in
+       message_queue::send() with timed waits (200ms) and sys().is_quit_requested()
+       checks, ensuring sound/music commands never spin at 100% CPU or freeze if the
+       audio thread is shutting down.
+    5) Result screens: Added quit checks to show_results_for_game(), check_for_highscore(),
+       and show_halloffame() to cleanly bypass subsequent screens when closing the window.
+    6) Particle system: Added safety check in particle::deinit() to prevent unsigned
+       init_count underflow during shutdown.
+
 Version 0.3.900-mesa-r6 (2026-10-13)
 ------------------------------------
 * AMIGA VERSION STRING:
@@ -114,6 +137,32 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r7 (14.10.2026)
+------------------------------------
+* BEHEBUNG VON 100% CPU-LAST & FREEZE BEIM BEENDEN / ESC / FENSTER SCHLIESSEN:
+  - 100% CPU-Last und Freeze beim Beenden aus einer laufenden Mission (ueber das
+    Fenster-Schliessgadget oder ueber [Esc] -> "Feindfahrt beenden") vollstaendig behoben:
+    1) Geleitschutz-Missionsschleife: In create_convoy_mission() fehlte nach dem
+       Aufruf von run_game() ein 'break;', wodurch die aeussere while(true)-Schleife
+       wieder in w.run() eintrat. Bei gesetzter Beenden-Anforderung geriet die Schleife
+       in einen ungebremsten 100% CPU-Spin, der das Spiel ohne Verzoegerung neu startete.
+    2) Widget-Rueckgabewert: widget::run() initialisiert 'retval' nun zu Beginn auf -1
+       und gibt bei gesetztem sys().is_quit_requested() sofort 0 zurueck. Dies verhindert,
+       dass alte Button-Rueckgabewerte (wie "Spiel starten" = 2) ueber Schleifendurchlaeufe
+       hinweg faelschlicherweise aktiv bleiben.
+    3) Message-Queue-Destruktor: Die gefaehrliche Endlos-Warteschleife while (!ackqueueempty)
+       in message_queue::~message_queue() wurde entfernt. Alle Warteschlangen werden nun
+       beim Zerstoeren direkt geleert und beide Condition-Variables signalisiert.
+    4) Absicherung von message_queue::send(): Die unbegrenzte while(true)-Schleife in
+       message_queue::send() durch zeitbegrenztes Warten (200ms) mit Abfrage von
+       sys().is_quit_requested() abgesichert. Verhindert 100% CPU-Spins oder Haenger,
+       falls der Audio-Thread gerade herunterfaehrt.
+    5) Ergebnis- und Highscore-Bildschirme: Abfragen auf is_quit_requested() in
+       show_results_for_game(), check_for_highscore() und show_halloffame() integriert,
+       um nachfolgende Dialoge beim Schliessen des Fensters sauber zu ueberspringen.
+    6) Partikelsystem: particle::deinit() gegen vorzeichenlosen Unterlauf (init_count == 0)
+       beim Beenden abgesichert.
 
 Version 0.3.900-mesa-r6 (13.10.2026)
 ------------------------------------

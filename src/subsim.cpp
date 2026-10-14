@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #if defined(__amigaos4__)
 static const char __attribute__((used)) amiga_version_tag[] =
-    "\0$VER: DangerFromTheDeep 0.5.1 (13.10.2026) AmigaOS 4 Port by TearsOfMe";
+    "\0$VER: DangerFromTheDeep 0.5.1 (14.10.2026) AmigaOS 4 Port by TearsOfMe";
 #endif
 
 #include <time.h>
@@ -310,6 +310,8 @@ void loadsavequit_dialogue::update_list() {
 // show hall of fame
 //
 void show_halloffame(const highscorelist &hsl) {
+    if (sys().is_quit_requested())
+        return;
     widget w(0, 0, 1024, 768, texts::get(197), 0, "krupp_docks.jpg");
     w.add_child(new widget(40, 50, 944, 640, string("")));
     w.add_child(new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 1, (1024 - 128) / 2, 768 - 32 - 16, 128, 32, texts::get(105)));
@@ -323,6 +325,8 @@ void show_halloffame_career() { show_halloffame(hsl_career); }
 // check if a game is good enough for the high score list
 //
 void check_for_highscore(const game &gm) {
+    if (sys().is_quit_requested())
+        return;
     unsigned totaltons = 0;
     const list<sink_record> &sunken_ships = gm.get_sunken_ships();
     for (list<sink_record>::const_iterator it = sunken_ships.begin(); it != sunken_ships.end(); ++it) {
@@ -347,13 +351,16 @@ void check_for_highscore(const game &gm) {
         w.add_child(new widget_text(400, 200, 0, 0, texts::get(198)));
         w.run(0, false);
     }
-    show_halloffame(hsl);
+    if (!sys().is_quit_requested())
+        show_halloffame(hsl);
 }
 
 //
 // show results after a game ended
 //
 void show_results_for_game(const game &gm) {
+    if (sys().is_quit_requested())
+        return;
     widget w(0, 0, 1024, 768, texts::get(124), 0, "sunken_destroyer.jpg");
     widget_list *wl = new widget_list(64, 64, 1024 - 64 - 64, 768 - 64 - 64);
     wl->set_column_width((1024 - 2 * 64) / 4);
@@ -562,6 +569,8 @@ void run_game(std::unique_ptr<game> gm) {
             music::instance().play_track(1, 500);
             loadsavequit_dialogue dlg(gm.get());
             int q = dlg.run(0, false, dlg.get_gamename());
+            if (sys().is_quit_requested())
+                break;
             // replace game and ui if new game was loaded
             if (q == 2) {
                 // fixme: ui doesn't need to get replaced, just give pointer to new
@@ -591,10 +600,9 @@ void run_game(std::unique_ptr<game> gm) {
     if (!sys().is_quit_requested()) {
         show_results_for_game(*gm);
         check_for_highscore(*gm);
+        // restore menu widgets
+        widget::ref_all_backgrounds();
     }
-
-    // restore menu widgets
-    widget::ref_all_backgrounds();
 }
 
 //
@@ -1011,7 +1019,11 @@ void create_convoy_mission() {
     wm->add_entry(texts::get(19), new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 2, 540, 700, 400, 40));
     wm->adjust_buttons(944);
     while (true) {
+        if (sys().is_quit_requested())
+            break;
         int result = w.run(0, false);
+        if (sys().is_quit_requested())
+            break;
         if (result == 2) { // start game
             string st;
             switch (wsubtype->get_selected()) {
@@ -1091,6 +1103,7 @@ void create_convoy_mission() {
                                             wtimeofday->get_selected(),
                                             gamedate,
                                             pi));
+            break;
         } else {
             break;
         }
@@ -1636,7 +1649,11 @@ void menu_options() {
 
         wm->add_entry(texts::get(11), new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 0, 0, 0, 0, 0));
         wm->align(0, 0);
+        if (sys().is_quit_requested())
+            break;
         retval = w.run(0, false);
+        if (sys().is_quit_requested())
+            break;
         if (retval == 2) {
             menu_select_language();
         }

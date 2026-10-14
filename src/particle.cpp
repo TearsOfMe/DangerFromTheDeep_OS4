@@ -318,7 +318,7 @@ void particle::init() {
 }
 
 void particle::deinit() {
-    if (--init_count != 0)
+    if (init_count == 0 || --init_count != 0)
         return;
     tex_smoke.clear();
     tex_spray.reset();

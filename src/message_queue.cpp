@@ -42,25 +42,13 @@ message_queue::message_queue()
 }
 
 message_queue::~message_queue() {
-    // clean up queues, report all pending messages as failed, then wait
-    // until ackqueue is empty... it should not happen though...
-    bool ackqueueempty = true;
-    {
-        mutex_locker ml(mymutex);
-        while (!myqueue.empty()) {
-            auto m = std::move(myqueue.front());
-            myqueue.pop_front();
-            if (m->needsanswer)
-                ackqueue.push_back(std::move(m));
-        }
-        ackcondvar.signal();
-        ackqueueempty = ackqueue.empty();
-    }
-    while (!ackqueueempty) {
-        thread::sleep(10);
-        mutex_locker ml(mymutex);
-        ackqueueempty = ackqueue.empty();
-    }
+    mutex_locker ml(mymutex);
+    myqueue.clear();
+    ackqueue.clear();
+    msginqueue = false;
+    abortwait = true;
+    ackcondvar.signal();
+    emptycondvar.signal();
 }
 
 bool message_queue::send(message::ptr msg, bool waitforanswer) {
@@ -75,14 +63,40 @@ bool message_queue::send(message::ptr msg, bool waitforanswer) {
         emptycondvar.signal();
     }
     if (waitforanswer) {
+        int timeout_count = 0;
         while (true) {
-            ackcondvar.wait(mymutex);
+            // Check if application is quitting or receiver abort was requested
+            if (sys().is_quit_requested() || abortwait) {
+                for (auto it = ackqueue.begin(); it != ackqueue.end(); ++it) {
+                    if (it->get() == msg_addr) {
+                        bool result = (*it)->result;
+                        ackqueue.erase(it);
+                        return result;
+                    }
+                }
+                if (sys().is_quit_requested()) {
+                    return false;
+                }
+            }
+
+            // Use timed wait (200ms) to prevent infinite lockups
+            bool signaled = ackcondvar.timed_wait(mymutex, 200);
+
             // check if this message has been acknowledged
             for (auto it = ackqueue.begin(); it != ackqueue.end(); ++it) {
                 if (it->get() == msg_addr) {
                     bool result = (*it)->result;
                     ackqueue.erase(it);
                     return result;
+                }
+            }
+
+            if (!signaled) {
+                ++timeout_count;
+                if (timeout_count >= 12 || sys().is_quit_requested()) {
+                    dftd_startup_log("message_queue::send: timed out waiting for ack (quit=%d, timeouts=%d)",
+                                     (int)sys().is_quit_requested(), timeout_count);
+                    return false;
                 }
             }
         }
@@ -96,6 +110,7 @@ void message_queue::wakeup_receiver() {
     mutex_locker oml(mymutex);
     abortwait = true;
     emptycondvar.signal();
+    ackcondvar.signal();
 }
 
 std::list<std::unique_ptr<message>> message_queue::receive(bool wait) {
