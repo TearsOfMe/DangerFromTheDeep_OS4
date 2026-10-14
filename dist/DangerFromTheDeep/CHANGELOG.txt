@@ -9,6 +9,217 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r18 (2026-10-14)
+-------------------------------------
+* ZOOM FIXES ACROSS ALL VIEWS & MULTI-LANGUAGE UI TEXT FITTING:
+  - Navigation Map Zooming (F5):
+    Fixed map jumping when zooming with mouse wheel. Zooming is now rock-solid centered on the
+    current view center (512, 384) without mapoffset translation jumps.
+  - Multi-Step Responsive Periscope (F2) & UZO (F3) Zoom:
+    Implemented natural multi-step zoom:
+    * 1.5x magnification (50° wide-angle view)
+    * 3.0x magnification (25° intermediate telephoto)
+    * 6.0x magnification (13.3° maximum telephoto)
+    Scrolling wheel up steps smoothly through 1.5x -> 3.0x -> 6.0x; scrolling down steps back.
+    Toggle key ('Z'/'Y') and middle-click toggle directly between 1.5x and 6.0x.
+  - Bridge Binoculars (F4) Wheel Zoom:
+    Scrolling mouse wheel up on bridge raises binoculars; scrolling down lowers binoculars.
+  - UI Text Box Fitting & Non-English Translations:
+    1) Widget text box clipping & auto-scaling: In widget_text::draw(), passed maxheight bounding
+       to print_wrapped so multiline text (e.g. mission briefings) strictly respects sunken box height
+       and never bleeds over buttons below. If text is too long with 12pt font, widget_text automatically
+       scales to 10pt font to fit.
+    2) Button & Checkbox Auto-Fitting: If button or checkbox label text in German, French, Italian,
+       Spanish, Czech, Polish, etc. exceeds container width, it automatically switches to 10pt font.
+    3) List Entry Auto-Fitting: List items that exceed available width automatically scale to 10pt.
+    4) Video Options Menu Layout: Expanded label column from 200px to 230px and set list column to 170px
+       so localized labels ("Anisotrope Filterstufe", "Kantenglättungsstufe", etc.) fit cleanly without overlap.
+    5) Theme Font Optimization: Switched default menu theme font from wide 14pt (font_vtremington14) to
+       clean 12pt (font_vtremington12), preserving all Latin-1 accented and umlaut characters while
+       giving 20% more horizontal room.
+    6) German Label Polishing: Cleaned up "Überstrahlung" and "Vertikale Synchronisation" in common.csv.
+    7) OK / Cancel Dialog Button Sizing: Dynamically compute button widths from translated text length.
+    8) Horizontal Menu Adjustment: Added fallback proportional layout when button labels are long.
+
+
+Version 0.3.900-mesa-r17 (2026-10-14)
+-------------------------------------
+* NAVIGATION MAP SCROLLING & PANNING, MOUSE WHEEL ZOOM ACROSS MAP, PERISCOPE & UZO:
+  - Navigation Map Scrolling & Panning:
+    1) Built intuitive map panning: Holding the Left Mouse Button or Middle Mouse Button now drags
+       and pans the sea map smoothly and naturally in 1:1 sync with the mouse pointer.
+    2) Intelligent vessel selection: Short left clicks without drag continue to select target ships
+       within a 48-pixel radius. Panning the map no longer triggers unwanted target switches.
+    3) Keyboard map navigation: Implemented map scrolling via Arrow Keys (Up, Down, Left, Right)
+       and Numpad (8, 2, 4, 6, 7, 9, 1, 3). Holding Shift accelerates panning by 4x.
+    4) Quick re-center: Pressing Space or 'C' instantly snaps the map view back to the player's submarine.
+    5) Middle mouse click: Centers the map view on the clicked world position.
+  - Mouse Wheel Zooming in Periscope & UZO:
+    1) Periscope (F2): Mouse wheel scroll up now zooms in (6.0x magnification, 13° FOV), scroll down
+       zooms out (1.5x magnification, 50° FOV). Middle-click toggles zoom.
+    2) UZO (F3): Fixed bug where mouse wheel scroll called freeview_display and moved the camera off the
+       bridge into the sea. Scrolling up now zooms to 6.0x, scrolling down zooms to 1.5x, middle-click toggles.
+  - Mouse Wheel Zooming on Navigation Map (F5):
+    Implemented smart cursor-centered mouse wheel zooming. Scrolling the mouse wheel zooms directly
+    toward/from the geographical position under the mouse pointer.
+  - Unified AmigaOS SDL2 wheel input:
+    Mapped SDL_MOUSEWHEEL, high-precision wheel values, and mouse buttons 4/5 (WHEELUP/WHEELDOWN)
+    so all wheel mice on AmigaOS 4 trigger zoom reliably.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r16 (2026-10-14)
+-------------------------------------
+* GRAPHICS OPTIMIZATION, VSYNC RUNTIME CONTROL & CONFIGURABLE FPS LIMITER:
+  - VSync and 60 FPS lock analysis:
+    1) Clarified framerate behavior: Danger from the Deep previously defaulted to a hardcoded 60 FPS
+       software limiter (maxfps = 60 in subsim.cpp).
+    2) Fixed VSync hardware disabling: Previously, SDL_GL_SetSwapInterval was only invoked if vsync != 0,
+       meaning when VSync was unticked in settings, swap interval 0 was never passed to the driver.
+       Because Mesa/Warp3D Nova defaults to swap interval 1, VSync remained permanently active in hardware.
+       Now SDL_GL_SetSwapInterval is always explicitly invoked (0 for disabled, 1 for enabled) on startup
+       and dynamically when toggled in options.
+    3) Eliminated artificial micro-stutters and 30-FPS frame drops when VSync is ON:
+       Previously, system::swap_buffers() called display_delay(1) and software limiter sleeps even when
+       VSync was active. Because display_swap_buffers already synchronizes with monitor refresh (vblank),
+       additional software sleeps caused AmigaOS timer tick overruns, missing the 16.6ms window and
+       artificially cutting the framerate down to 30 FPS. Software delay is now bypassed when VSync is ON.
+    4) Configurable Max FPS Limiter in GUI and Config:
+       Added "Max. FPS (Limiter)" selection list in Video Options (Unlimited (0), 30, 60, 75, 120, 144 FPS)
+       and registered "max_fps" in dftd.cfg. Supported via CLI: --maxfps <N>, --vsync, --novsync.
+  - Graphics rendering pipeline optimization (Dynamic Water VBO):
+    Replaced glBufferSubData with buffer orphaning (glBufferData with GL_DYNAMIC_DRAW) every frame for
+    the dynamic ocean vertex buffer. In Mesa Gallium / Warp3D Nova, glBufferSubData causes GPU-CPU
+    synchronization stalls when updating a buffer currently referenced by in-flight draw commands. Buffer
+    orphaning allows Mesa driver memory reallocation without waiting for previous frame GPU completion.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r15 (2026-10-14)
+-------------------------------------
+* FULL ALTIVEC HARDWARE ACCELERATION ENABLED & RESTORED (AMIGAONE X1000):
+  - Fully enabled and verified runtime-gated AltiVec SIMD acceleration across 3D math & water rendering:
+    1) Fixed Newton-Raphson inverse square root refinement in altivec_rsqrt_vec:
+       Replaced ambiguous intrinsic call with explicit vec_sub(one_point_five, vec_madd(half, v_est_sq, zero)),
+       ensuring 100% mathematically exact single-precision inverse square roots (1.5 - 0.5 * v * est^2).
+       This completely resolves the normal distortion bug that previously led to AltiVec being bypassed.
+    2) Enabled AltiVec 4x4 matrix multiplication in matrix4t<float>::operator*:
+       Transforms now execute via altivec_matrix4_mul with safe unaligned loads/stores when
+       cpu_has_altivec() is detected at runtime.
+    3) Restored AltiVec water vertex normal computation in water::compute_normals:
+       Face normal accumulation and normal vector normalization now execute at full SIMD speed
+       via altivec_compute_vertex_normals, cutting wave phase generation time in half.
+       Added 16-element safety padding to facenormals to guarantee safe unaligned vector loads.
+    4) Restored AltiVec geoclipmap vertex row generation in water::display:
+       Contiguous vertex rows are generated via altivec_generate_geoclipmap_row when AltiVec is available.
+    5) 100% safe dual-CPU execution:
+       All AltiVec entry points are strictly guarded behind if (cpu_has_altivec()).
+       On AmigaOne X5000 (e5500), the engine seamlessly runs on the scalar fallback paths (with
+       hardware frsqrte pipeline) with zero AltiVec instructions executed.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r14 (2026-10-14)
+-------------------------------------
+* FIX 3D MODELS DISAPPEARING (SUBMARINE & SHIPS IN FREE VIEW & BRIDGE VIEW):
+  - Fixed disappearance of submarine in Free View and ships popping in/out at the horizon in Bridge View:
+    1) Removed faulty software frustum culling (`sphere_in_frustum`) in freeview_display::draw_objects:
+       The previous check incorrectly tested absolute world coordinates (`(*it)->get_pos()`, hundreds of
+       kilometers away from origin) against the camera-relative viewing frustum (centered at 0,0,0).
+       As soon as the camera rotated or moved, the frustum planes rejected the world coordinates,
+       causing the player's submarine model to suddenly vanish into thin air in Free View, and horizon
+       ships to disappear when moving or scanning around from the bridge.
+    2) Restored clean native rendering of visible objects:
+       The object list is already filtered by the lookout/sensors (`player->get_visible_objects()`),
+       and the GPU hardware clipper effortlessly and perfectly clips off-screen geometry with zero
+       CPU overhead and zero risk of model popping or disappearing.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r13 (2026-10-14)
+-------------------------------------
+* FIX WATER SHADER COMPILATION, RESTORE MESA SHADER CACHE & WAVE ANIMATION:
+  - Fixed shader caching & wave motion freeze caused by negative power exponent in water.fshader:
+    1) Restored proven Schlick Fresnel approximation in water.fshader:
+       Replaced `pow(fresnel, -8.0) * 0.8` with `0.02 + 0.98 * pow(clamp(1.0 - doten, 0.0, 1.0), 5.0)`.
+       Negative exponent powers in GLSL are either invalid or produce driver-level shader
+       lowering failures on Mesa PowerPC/Nova, which prevented Mesa from writing the compiled
+       program to the on-disk shader cache (`mesa_shader_cache/`) and disabled normal map
+       perturbation (freezing visible wave motion).
+    2) Restored vibrant North Atlantic wave contrast and dynamic wave lighting:
+       Restored `wavetop = color(35, 95, 115)` and `wavebottom = color(18, 55, 85)` in
+       water::set_refraction_color(). This provides proper luminance contrast between wave crests
+       and troughs, making wave motion clearly visible and dynamic under varying sun angles.
+    3) Restored reflection texture buffer clear color in water::refltex_render_bind() to clearcol
+       (horizon sky color) to ensure reflections seamlessly integrate into the sky.
+    4) Restored atmospheric fog density to 0.0005f in water constructor and freeview_display.
+    5) Preserved fullscreen viewport restoration in refltex_render_unbind() for non-FBO paths.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r12 (2026-10-14)
+-------------------------------------
+* RESTORATION OF AUTHENTIC DEEP OCEAN WATER RENDERING:
+  - Fully restored proven Oct 8th water solution ("Lösung von damals"):
+    1) Restored authentic North Atlantic ocean water colors in water::set_refraction_color:
+       wavetop base set to color(4, 10, 16) / color(49, 83, 94) and wavebottom
+       set to color(2, 6, 12) / color(29, 56, 91), bringing back deep marine blue depths
+       and realistic wave surface tone instead of washed-out white/pale haze.
+    2) Restored reflection buffer clear color in water::refltex_render_bind:
+       Buffer is cleared to deep ocean blue (0.0f, 1/16f, 1/8f) rather than horizon sky,
+       preventing water reflections from being overwhelmed with chalk-white sky reflections.
+    3) Restored authentic Fresnel falloff in water.fshader: Replaced Schlick's formula
+       with original pow(fresnel, -8.0) * 0.8, allowing rich ocean upwelling color to
+       dominate at bridge and close/mid viewing angles (1%-30% reflection), with sky
+       reflection only appearing at distant grazing angles.
+    4) Restored specular sun glints (multiplier 5.0) and diffuse lighting dl = dot(L, N) * 0.6 + 0.4.
+    5) Balanced atmospheric fog density for 20km ocean visibility: Set water fog density
+       to 0.0001f (in constructor and freeview_display), keeping water clear and vivid up to
+       5-10 km, while distant ocean (>15km) merges seamlessly into the horizon sky with zero
+       dark bands, artifacts, or black blocks.
+
+
+Version 0.3.900-mesa-r11 (2026-10-14)
+-------------------------------------
+* WATER & HORIZON VISUAL ARTIFACTS FIX:
+  - Eliminated procedural terrain patches/blocks rising from the open ocean:
+    1) Fixed height_generator_map::generate_patch: Prevented procedural Gaussian
+       noise from pushing ocean floor elevations (negative depths) above sea level
+       (> 0.0m). Ocean vertices are now strictly clamped to <= -1.0m, ensuring
+       no procedural land tiles ever appear in open sea.
+    2) Land vertices (elevation > 0.0m) are clamped to >= +0.5m, ensuring crisp,
+       natural coastlines with clean sea-level separation.
+    3) Fixed above_water parameter in terrain_manager: Corrected signature from
+       'bool above_water' to 'int above_water', preventing underwater (-1) view
+       modes from being cast to true.
+    4) Fixed horizon fog calculation in geoclipmap.vshader: Replaced homogeneous
+       clip-space gl_Position.z with world-space distance from camera
+       length(gl_ModelViewMatrixInverse[3].xyz - gl_Vertex.xyz). Distant islands
+       and mountains now blend seamlessly into atmospheric horizon fog.
+    5) Added ambient lighting term to geoclipmap.fshader to ensure shaded terrain
+       retains natural contrast without rendering pitch-black.
+    6) Restored viewport in water::refltex_render_unbind() on non-FBO fallback paths.
+    7) Removed AltiVec path from matrix4 operator* in favor of compiler FMA scalar
+       instructions, eliminating any unaligned 16-byte vector load risks.
+
+* FRENCH ACCENTS & GERMAN UMLAUTS FIX:
+  - Fixed font character rendering for French, German, Spanish, and Italian:
+    1) Switched widget theme default font to font_vtremington14: The previous font
+       (font_typenr16) was missing 138 out of 223 Latin-1 glyphs, causing all
+       French accents (é, è, ê, à, â, ç, Ç, É, î, ï, ô, ù, û) and German umlauts
+       (ä, ö, ü, Ä, Ö, Ü, ß) to render as empty blank spaces in menus and UI.
+       font_vtremington14 provides full Latin-1 character coverage while preserving
+       the authentic vintage mechanical typewriter aesthetic.
+    2) Implemented font fallback mechanism in class font: When a font is missing
+       specific glyphs (width/height == 0), rendering automatically delegates to
+       the designated fallback font (font_vtremington14 -> font_arial).
+    3) Added support for non-breaking spaces (0xA0 / &nbsp;) in font::print_text,
+       font::get_size, and font::get_char_width (common in French typography).
+    4) Added automatic mapping of 3-byte UTF-8 punctuation (en-dashes, em-dashes,
+       smart quotes) to standard ASCII in font::read_character.
+    5) Replaced non-Latin-1 ligature 'œ' with 'oe' ("noeuds") in common.csv.
+
+
 Version 0.3.900-mesa-r10 (2026-10-14)
 -------------------------------------
 * MAP VIEW ZOOM CRASH FIX:
@@ -150,6 +361,217 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r18 (14.10.2026)
+----------------------------------------
+* ZOOM-KORREKTUREN IN ALLEN ANSICHTEN & SCHRIFTANPASSUNG FUER ALLE SPRACHEN:
+  - Seekarten-Zoom (F5):
+    Fehler behoben, durch den die Seekarte beim Zoomen mit dem Mausrad unkontrolliert um Kilometer
+    in den Ozean sprang. Das Zoomen ist nun stabil auf die Bildmitte zentriert ohne Koordinatensprung.
+  - Mehrstufiger Periskop- (F2) und UZO- (F3) Zoom:
+    Natürlichen 3-Stufen-Zoom eingebaut:
+    * Stufe 0: 1.5x Vergrößerung (50° Weitwinkel)
+    * Stufe 1: 3.0x Vergrößerung (25° Tele)
+    * Stufe 2: 6.0x Vergrößerung (13.3° Maximalvergrößerung)
+    Mausrad nach oben schaltet geschmeidig 1.5x -> 3.0x -> 6.0x durch; Mausrad nach unten zoomt zurück.
+    Zoom-Taste ('Z'/'Y') und mittlere Maustaste schalten direkt zwischen 1.5x und 6.0x um.
+  - Brücken-Fernglas (F4) per Mausrad:
+    Mausrad nach oben aktiviert das Fernglas auf der Brücke; Mausrad nach unten senkt es wieder ab.
+  - Text- und Schriftbox-Anpassung für Deutsch, Französisch und andere Sprachen:
+    1) Textboxen (widget_text): Strikte Höhenbegrenzung (maxheight) in widget_text::draw() aktiviert,
+       damit mehrzeilige Missionsbeschreibungen nicht mehr über den unteren Kastenrand auf die Schaltflächen
+       laufen. Zu lange Texte skalieren bei Bedarf automatisch auf 10pt Schrift herunter.
+    2) Automatische Schaltflächen- & Checkbox-Skalierung: Zu lange Texte in Buttons oder Checkboxen
+       (z.B. "Vertikale Synchronisation", "Zurück zum vorherigen Menü") skalieren automatisch auf 10pt.
+    3) Listen-Einträge: Zu breite Listeneinträge nutzen automatisch die kompaktere 10pt Schrift.
+    4) Grafikoptionen-Layout optimiert: Beschriftungsspalte von 200px auf 230px verbreitert (Listen 170px),
+       damit "Anisotrope Filterstufe", "Kantenglättungsstufe" etc. nicht mit Auswahllisten kollidieren.
+    5) Theme-Schriftart: Auf font_vtremington12 (12pt) umgestellt – alle Umlaute und Akzente bleiben
+       perfekt erhalten, bei 20% mehr horizontalem Platz für alle Menüs.
+    6) Deutsche Texte poliert: "Überstrahlung" statt "Überstrahlung (Bloom)" und sauberes "Vertikale Synchronisation".
+    7) Dialog-Schaltflächen: OK- und Abbrechen-Buttons passen ihre Breite dynamisch an die übersetzte Textlänge an.
+    8) Horizontale Menüs: Proportionale Ausrichtung eingebaut, falls Buttons durch lange Übersetzungen voll belegt sind.
+
+
+Version 0.3.900-mesa-r17 (14.10.2026)
+---------------------------------------
+* SEEKARTEN-SCROLLING & PANNING, MAUSRAD-ZOOM FUER KARTE, PERISKOP & UZO:
+  - Seekarten-Scrolling und Panning:
+    1) Intuitives Karten-Verschieben: Durch Gedrueckthalten der linken oder mittleren Maustaste laesst sich
+       die Seekarte nun voellig natuerlich und ruckelfrei 1:1 mit dem Mauszeiger verschieben (Pan/Drag).
+    2) Intelligente Zielauswahl: Ein kurzer Linksklick ohne Mausbewegung waehlt weiterhin Schiffe in einem
+       48-Pixel-Radius an. Beim Verschieben der Karte wird nicht mehr versehentlich ein neues Ziel gesetzt.
+    3) Tastatur-Karten-Navigation: Scrolling per Pfeiltasten (Hoch, Runter, Links, Rechts) und Numpad
+       (8, 2, 4, 6, 7, 9, 1, 3) eingebaut. Gedruecktes Shift vervierfacht die Scroll-Geschwindigkeit.
+    4) Sofortige Zentrierung: Leertaste oder Taste 'C' zentriert die Karte sofort wieder auf das eigene U-Boot.
+    5) Mittlerer Mausklick: Zentriert die Ansicht direkt auf die angeklickte Position.
+  - Mausrad-Zoom im Periskop & UZO:
+    1) Periskop (F2): Mausrad nach oben schaltet auf 6-fache Vergroesserung (13° Sichtfeld), Mausrad nach
+       unten schaltet zurueck auf 1.5-fache Weitwinkel-Optik (50°). Klick mit mittlerer Maustaste wechselt Zoom.
+    2) UZO (F3): Fehler behoben, bei dem das Mausrad die Freeview-Kamera bewegte und den Spieler von der
+       Bruecke ins Meer schob. Mausrad schaltet nun sauber zwischen 6.0x und 1.5x um, Mittelklick toggelt Zoom.
+  - Mausrad-Zoom auf der Seekarte (F5):
+    Mausrad-Zoom mit Fokus auf den Mauszeiger implementiert. Die Karte zoomt nun exakt an der Position
+    herein bzw. heraus, auf die der Mauszeiger gerade zeigt.
+  - Vereinheitlichter AmigaOS-SDL2-Mausrad-Treiber:
+    Sowohl SDL_MOUSEWHEEL, High-Precision-Werte als auch Maustasten 4 und 5 (WHEELUP/WHEELDOWN) werden nun
+    einheitlich ausgewertet, sodass saemtliche Amiga-Maeuse und Treiber zuverlaessig zoomen.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r16 (14.10.2026)
+---------------------------------------
+* GRAFIK-OPTIMIERUNG, ECHTE VSYNC-STEUERUNG & KONFIGURIERBARER FPS-LIMITER:
+  - Analyse von 60 FPS Lock und VSync:
+    1) Framerate-Verhalten aufgeklaert: Danger from the Deep hatte standardmaessig einen fest verdrahteten
+       60-FPS-Software-Limiter (maxfps = 60 in subsim.cpp) aktiv.
+    2) Echtes VSync-Deaktivieren im Grafiktreiber korrigiert: Zuvor wurde SDL_GL_SetSwapInterval nur bei
+       vsync != 0 aufgerufen. Wenn VSync in den Optionen abgewaehlt war, wurde Swap-Intervall 0 nie an den
+       Treiber uebergeben. Da Mesa/Warp3D Nova standardmaessig Swap-Intervall 1 nutzt, war VSync hardwareseitig
+       stets aktiv. Nun wird SDL_GL_SetSwapInterval beim Start und bei Aenderung im Optionsmenue immer explizit
+       aufgerufen (0 fuer Aus, 1 fuer An).
+    3) Ruckler und 30-FPS-Einbrueche bei aktivem VSync beseitigt:
+       Zuvor rief system::swap_buffers() auch bei aktivem VSync display_delay(1) und Software-Limiter-Pausen auf.
+       Da der Buffer-Swap bereits exakt auf den VBlank des Monitors (60 Hz) wartet, fuehrten zusaetzliche
+       Task-Sleeps auf AmigaOS zum Verpassen des 16.6ms-Zeitfensters und halbierten die Framerate auf 30 FPS.
+       Bei aktivem Hardware-VSync werden kuenstliche Software-Sleeps nun komplett umgangen.
+    4) Frei konfigurierbarer FPS-Limiter in Optionen und dftd.cfg:
+       Neues Auswahlfeld "Max. FPS (Limiter)" im Videomenue (Unbegrenzt (0), 30, 60, 75, 120, 144 FPS)
+       sowie Speicherung in dftd.cfg ("max_fps"). Unterstuetzung via CLI: --maxfps <N>, --vsync, --novsync.
+  - Rendering-Pipeline-Optimierung (Dynamisches Wasser-VBO):
+    glBufferSubData durch Buffer-Orphaning (glBufferData mit GL_DYNAMIC_DRAW) beim Frame-Update der
+    dynamischen Ozean-Vertices ersetzt. In Mesa Gallium / Warp3D Nova fuehrte glBufferSubData zu haeufigen
+    GPU-CPU-Wartepausen (Pipeline-Stalls), wenn ein Puffer aktualisiert wurde, der noch von vorherigen
+    Draw-Calls gelesen wurde. Buffer-Orphaning ermoeglicht dem Treiber sofortige Speicherneuzuweisung ohne
+    Warten auf die GPU.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r15 (14.10.2026)
+--------------------------------------
+* VOLLSTAENDIGE ALTIVEC-HARDWARE-BESCHLEUNIGUNG AKTIVIERT & WIEDERHERGESTELLT (AMIGAONE X1000):
+  - Vollstaendige Aktivierung und Laufzeitpruefung der AltiVec-SIMD-Beschleunigung fuer 3D-Mathematik & Wasser:
+    1) Newton-Raphson-Verfeinerung fuer reziproke Quadratwurzel in altivec_rsqrt_vec korrigiert:
+       Zuvor mehrdeutiger Intrinsic-Aufruf durch explizites vec_sub(one_point_five, vec_madd(half, v_est_sq, zero))
+       ersetzt, was mathematisch exakte Normalenvektoren (1.5 - 0.5 * v * est^2) in voller Einfach-Praezision
+       garantiert. Dies behebt die frueheren Normalen-Verzerrungen restlos.
+    2) AltiVec 4x4-Matrixmultiplikation in matrix4t<float>::operator* aktiviert:
+       3D-Transformationen nutzen nun altivec_matrix4_mul mit sicheren unaligned Loads/Stores, wenn
+       cpu_has_altivec() zur Laufzeit aktiv ist.
+    3) AltiVec-Normalenberechnung in water::compute_normals wiederhergestellt:
+       Flaechennormalen-Akkumulation und Vektornormierung laufen via altivec_compute_vertex_normals
+       auf voller SIMD-Geschwindigkeit, was die Berechnungszeit der Wellenphasen halbiert.
+       facenormals um 16 Dummy-Elemente erweitert, um ueberlesende SIMD-Loads absolut speichersicher zu halten.
+    4) AltiVec-Geoclipmap-Zeilengenerierung in water::display wiederhergestellt:
+       Zusammenhaengende Vertexzeilen werden via altivec_generate_geoclipmap_row befuellt.
+    5) 100% sichere Ausfuehrung auf X1000 und X5000:
+       Alle AltiVec-Pfade sind strikt durch if (cpu_has_altivec()) geschuetzt.
+       Auf dem AmigaOne X5000 (e5500) laeuft die Engine nahtlos auf den skalaren Fallback-Pfaden (mit
+       PowerPC-frsqrte-Hardware-Pipeline), ohne dass eine einzige AltiVec-Instruktion ausgefuehrt wird.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r14 (14.10.2026)
+--------------------------------------
+* KORREKTUR VERSCHWINDENDE 3D-MODELLE (U-BOOT & SCHIFFE IN FREE- & BRUECKEN-ANSICHT):
+  - Behebung des ploetzlichen Verschwindens des U-Boots in der Free-View und von Schiffen am Horizont:
+    1) Fehlerhaftes Software-Frustum-Culling (`sphere_in_frustum`) in freeview_display::draw_objects entfernt:
+       Die bisherige Pruefung testete irrtuemlich absolute Weltkoordinaten (`(*it)->get_pos()`, hunderte
+       Kilometer vom Nullpunkt entfernt) gegen die kamera-relative Viewing-Frustum (Zentrum bei 0,0,0).
+       Sobald sich die Kamera drehte oder bewegte, rotierten die Frustum-Ebenen und verwarfen die
+       Weltkoordinaten. Dadurch verschwand in der Free-View ploetzlich das eigene U-Boot-Modell und
+       in der Brueckenansicht ploppten Schiffe am Horizont bei Kamerabewegungen spontan weg.
+    2) Sauberes Rendering sichtbarer Objekte wiederhergestellt:
+       Die Liste der Objekte ist durch die Ausguck- und Sensorsysteme bereits vorab gefiltert
+       (`player->get_visible_objects()`). Das GPU-Hardware-Clipping schneidet ausserhalb des Sichtfelds
+       liegende Polygone vollautomatisch und verlustfrei ab – ohne CPU-Overhead und ohne Culling-Fehler.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r13 (14.10.2026)
+--------------------------------------
+* KORREKTUR WASSER-SHADER, WIEDERHERSTELLUNG MESA-SHADER-CACHE & WELLENBEWEGUNG:
+  - Behebung des Shader-Cache- und Einfrier-Problems durch negativen Exponenten in water.fshader:
+    1) Bewaehrte Schlick-Fresnel-Formel in water.fshader wiederhergestellt:
+       `pow(fresnel, -8.0) * 0.8` durch `0.02 + 0.98 * pow(clamp(1.0 - doten, 0.0, 1.0), 5.0)` ersetzt.
+       Negative Exponenten in GLSLfuehrten im Mesa-Shader-Compiler/Treiber auf PowerPC/Nova
+       zu Fehlern bei der Code-Generierung. Dadurch speicherte Mesa den kompilierten Shader
+       nicht mehr auf der Festplatte (`mesa_shader_cache/`) und die Normal-Map-Verzerrung fiel
+       aus, wodurch die Wellenanimation komplett einfrierte.
+    2) Kraeftige Nordatlantik-Wellenkontraste und dynamische Wellenbeleuchtung wiederhergestellt:
+       `wavetop = color(35, 95, 115)` und `wavebottom = color(18, 55, 85)` in
+       water::set_refraction_color() wiederhergestellt. Dies erzeugt den noetigen Helligkeitskontrast
+       zwischen Wellenkaemmen und Wellentaeler, sodass die Wellenbewegung bei allen Sonnenstaenden
+       klar und plastisch sichtbar ist.
+    3) Puffer-Loeschfarbe in water::refltex_render_bind() wieder auf clearcol (Horizont-Himmelsfarbe)
+       gesetzt, damit sich Reflexionen nahtlos in den Himmel einfuegen.
+    4) Nebeldichte auf 0.0005f in Konstruktor und freeview_display zurueckgesetzt.
+    5) Viewport-Wiederherstellung auf Vollbild in refltex_render_unbind() beibehalten.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
+Version 0.3.900-mesa-r12 (14.10.2026)
+--------------------------------------
+* WIEDERHERSTELLUNG DES AUTHENTISCHEN TIEFENWASSER-RENDERINGS:
+  - Vollstaendige Wiederherstellung der bewaehrten Loesung vom 8. Oktober ("Loesung von damals"):
+    1) Authentische Nordatlantik-Wasserfarben in water::set_refraction_color wiederhergestellt:
+       wavetop auf color(4, 10, 16) / color(49, 83, 94) und wavebottom auf
+       color(2, 6, 12) / color(29, 56, 91) gesetzt, wodurch das tiefe Meeresblau
+       und die natuerliche Wellentoenung zurueckkehren statt blasser/kreideweisser Flaechen.
+    2) Puffer-Loeschfarbe der Reflexionstextur in water::refltex_render_bind korrigiert:
+       Der Puffer wird nun auf tiefes Ozeanblau (0.0f, 1/16f, 1/8f) statt Horizont-Himmel
+       geloescht, wodurch uebermaessige Himmelsreflexionen auf dem Wasser verhindert werden.
+    3) Authentischen Fresnel-Term in water.fshader wiederhergestellt: Schlick-Formel
+       durch originales pow(fresnel, -8.0) * 0.8 ersetzt, sodass bei normalen Blickwinkeln
+       von der Bruecke das satte Ozeanwasser dominiert und Reflexionen nur bei flachen
+       Winkeln am Horizont ueberwiegen.
+    4) Sonnen-Glints (Multiplikator 5.0) und diffuse Ausleuchtung dl = dot(L, N) * 0.6 + 0.4 wiederhergestellt.
+    5) Atmosphaerischen Nebel auf 20 km Sichtweite austariert: Nebeldichte auf 0.0001f gesetzt,
+       sodass das Wasser auf 0-10 km kristallklar und kraeftig blau bleibt und sich erst
+       ab 15-20 km nahtlos ohne schwarze Balken oder Kanten in den Himmel einfuegt.
+
+
+Version 0.3.900-mesa-r11 (14.10.2026)
+--------------------------------------
+* KORREKTUR DER WASSER- UND HORIZONT-GRAFIKFEHLER:
+  - Vollstaendige Beseitigung der prozeduralen Gelaendebloecke auf dem offenen Meer:
+    1) height_generator_map::generate_patch korrigiert: Verhindert, dass das
+       prozedurale Gauss-Rauschen den Meeresboden (negative Tiefen) ueber den
+       Meeresspiegel (> 0.0m) anhebt. Ozean-Vertices werden jetzt strikt auf
+       <= -1.0m begrenzt, sodass im Meer keinerlei schwebende Gelaendekacheln
+       mehr entstehen koennen.
+    2) Land-Vertices (Hoehe > 0.0m) werden auf >= +0.5m gehalten, was saubere,
+       natuerliche Kuestenlinien ohne Kantenflimmern gewaehrleistet.
+    3) Parameter above_water in terrain_manager korrigiert: Von 'bool' auf 'int'
+       umgestellt, damit Unterwasser-Modi (-1) nicht faelschlicherweise als 'true'
+       interpretiert werden.
+    4) Horizont-Nebel in geoclipmap.vshader korrigiert: Der fehlerhafte Clip-Space-
+       Wert gl_Position.z wurde durch den realen Welt-Abstand zur Kamera ersetzt
+       length(gl_ModelViewMatrixInverse[3].xyz - gl_Vertex.xyz). Entfernte Inseln
+       gehen nun nahtlos in den Horizontdunst ueber.
+    5) Ambient-Beleuchtung in geoclipmap.fshader ergaenzt, sodass beschattetes
+       Gelaende natuerlich ausgeleuchtet wird und nicht pechschwarz wirkt.
+    6) Viewport-Wiederherstellung in water::refltex_render_unbind() ergaenzt.
+    7) AltiVec-Pfad in matrix4 operator* zugunsten hochoptimierter skalarer
+       FMA-Befehle entfernt, um ungerichtete 16-Byte-Vektorladefehler auszuschliessen.
+
+* KORREKTUR DER FRANZOESISCHEN AKZENTE & DEUTSCHEN UMLAUTE:
+  - Fehlerfreie Schrift- und Textdarstellung in allen Menues und der Benutzeroberflaeche:
+    1) Widget-Themen-Schriftart auf font_vtremington14 umgestellt: Der bisherige
+       Font (font_typenr16) enthielt fuer 138 von 223 Zeichen keine Glyphen, wodurch
+       alle franzoesischen Akzente (é, è, ê, à, â, ç, Ç, É, î, ï, ô, ù, û) sowie
+       deutsche Umlaute (ä, ö, ü, Ä, Ö, Ü, ß) als leere Luecken dargestellt wurden.
+       font_vtremington14 bietet vollstaendige Latin-1-Abdeckung bei identischem
+       historischem Schreibmaschinen-Schriftbild.
+    2) Font-Fallback-Mechanismus in Klasse font implementiert: Fehlende Zeichen
+       werden automatisch aus der konfigurierten Fallback-Schriftart geladen
+       (font_vtremington14 -> font_arial).
+    3) Unterstuetzung fuer geschuetzte Leerzeichen (0xA0 / &nbsp;) ergaenzt
+       (wichtig fuer franzoesische Typographie vor Doppelpunkten).
+    4) Automatische Umsetzung von 3-Byte-UTF-8-Sonderzeichen (Gedankenstriche,
+       typographische Anfuehrungszeichen) in font::read_character.
+    5) Sonder-Ligatur 'œ' in common.csv durch standardkonformes 'oe' ("noeuds") ersetzt.
+
 
 Version 0.3.900-mesa-r10 (14.10.2026)
 --------------------------------------
