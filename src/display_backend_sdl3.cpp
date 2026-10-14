@@ -119,9 +119,25 @@ void display_set_window_size(void* window, int w, int h) {
     SDL_SetWindowPosition(static_cast<SDL_Window*>(window), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
+void display_set_mode(void* window, int w, int h, bool fullscreen) {
+    if (!window) return;
+    SDL_Window* win = static_cast<SDL_Window*>(window);
+    if (fullscreen) {
+        SDL_SetWindowSize(win, w, h);
+        SDL_SetWindowFullscreen(win, true);
+    } else {
+        SDL_SetWindowFullscreen(win, false);
+        SDL_SetWindowSize(win, w, h);
+        SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
+    SDL_PumpEvents();
+}
+
 void display_set_fullscreen(void* window, bool fullscreen) {
     if (!window) return;
-    SDL_SetWindowFullscreen(static_cast<SDL_Window*>(window), fullscreen);
+    int w = 0, h = 0;
+    display_get_window_size(window, &w, &h);
+    display_set_mode(window, w, h, fullscreen);
 }
 
 void display_get_window_size(void* window, int* w, int* h) {

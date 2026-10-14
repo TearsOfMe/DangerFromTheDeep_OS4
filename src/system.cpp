@@ -217,13 +217,8 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
     // SDL_WINDOW_FULLSCREEN causes so many issues.
 
     if (fullscreen) {
-        bool ok = false;
         unsigned max_mode_x = 0, max_mode_y = 0;
         for (list<vector2i>::const_iterator it = available_resolutions.begin(); it != available_resolutions.end(); ++it) {
-            if (*it == vector2i(res_x_, res_y_)) {
-                ok = true;
-                break;
-            }
             if (it->x >= int(max_mode_x)) {
                 max_mode_x = it->x;
                 if (it->y >= int(max_mode_y)) {
@@ -232,12 +227,7 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
             }
         }
 
-        if (res_x_ == 0 || res_y_ == 0 || !ok) {
-            if (!ok && res_x_ != 0 && res_y_ != 0) {
-                log_info("Requested fullscreen resolution " << res_x_ << "x" << res_y_
-                         << " not in native mode list, using desktop resolution ("
-                         << max_mode_x << "x" << max_mode_y << ").");
-            }
+        if (res_x_ == 0 || res_y_ == 0) {
             res_x_ = max_mode_x;
             res_y_ = max_mode_y;
         }
@@ -250,10 +240,7 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
                              &screen, &glcontext);
         window_id = display_get_window_id(screen);
     } else {
-        display_set_fullscreen(screen, fullscreen);
-        if (!fullscreen) {
-            display_set_window_size(screen, res_x_, res_y_);
-        }
+        display_set_mode(screen, res_x_, res_y_, fullscreen);
     }
 
     int actual_w = 0, actual_h = 0;
@@ -360,22 +347,33 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
 
     glsl_shader_setup::default_init();
 
-    // compute 2d area and resolution. it must be 4:3 always.
-    if (params.resolution_x * 3 >= params.resolution_y * 4) {
-        // screen is wider than high
+    update_2d_area();
+}
+
+void system::update_2d_area() {
+    if (params.fill_widescreen) {
+        res_area_2d_x = 0;
+        res_area_2d_y = 0;
+        res_area_2d_w = params.resolution_x;
+        res_area_2d_h = params.resolution_y;
+    } else if (params.resolution_x * 3 >= params.resolution_y * 4) {
+        // screen is wider than high -> pillarbox (4:3)
         res_area_2d_w = params.resolution_y * 4 / 3;
         res_area_2d_h = params.resolution_y;
         res_area_2d_x = (params.resolution_x - res_area_2d_w) / 2;
         res_area_2d_y = 0;
     } else {
-        // screen is higher than wide
+        // screen is higher than wide -> letterbox (4:3)
         res_area_2d_w = params.resolution_x;
         res_area_2d_h = params.resolution_x * 3 / 4;
         res_area_2d_x = 0;
         res_area_2d_y = (params.resolution_y - res_area_2d_h) / 2;
-        // maybe limit y to even lines for interlaced displays?
-        // res_area_2d_y &= ~1U;
     }
+}
+
+void system::set_fill_widescreen(bool fill) {
+    params.fill_widescreen = fill;
+    update_2d_area();
 }
 
 void system::draw_console_with(const font *fnt, const texture *background) {

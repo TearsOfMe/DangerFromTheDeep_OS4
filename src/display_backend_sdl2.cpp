@@ -45,17 +45,29 @@ void display_get_version(int* major, int* minor, int* patch) {
 void display_get_available_resolutions(int display_index, std::list<vector2i>& out) {
     out.clear();
     int n = SDL_GetNumDisplayModes(display_index);
-    if (n <= 0) {
-        out.push_back(vector2i(1024, 768));
-        out.push_back(vector2i(800, 600));
-        out.push_back(vector2i(1280, 720));
-        out.push_back(vector2i(1920, 1080));
-        return;
+    if (n > 0) {
+        SDL_DisplayMode dm;
+        for (int i = 0; i < n; ++i) {
+            if (SDL_GetDisplayMode(display_index, i, &dm) == 0) {
+                vector2i v(dm.w, dm.h);
+                if (std::find(out.begin(), out.end(), v) == out.end()) {
+                    out.push_back(v);
+                }
+            }
+        }
     }
-    SDL_DisplayMode dm;
-    for (int i = 0; i < n; ++i) {
-        if (SDL_GetDisplayMode(display_index, i, &dm) == 0)
-            out.push_back(vector2i(dm.w, dm.h));
+    // Ensure common standard resolutions are always present
+    static const vector2i standard_modes[] = {
+        vector2i(800, 600),
+        vector2i(1024, 768),
+        vector2i(1280, 720),
+        vector2i(1280, 1024),
+        vector2i(1920, 1080)
+    };
+    for (size_t i = 0; i < sizeof(standard_modes) / sizeof(standard_modes[0]); ++i) {
+        if (std::find(out.begin(), out.end(), standard_modes[i]) == out.end()) {
+            out.push_back(standard_modes[i]);
+        }
     }
 }
 
@@ -66,8 +78,16 @@ void display_create_window(const char* caption, int w, int h, bool fullscreen,
                           void** out_window, void** out_glcontext) {
     dftd_startup_log("Creating SDL window: %dx%d (fullscreen=%d)...", w, h, fullscreen ? 1 : 0);
     Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
-    if (fullscreen)
-        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+    Uint32 fs_mode = 0;
+    if (fullscreen) {
+        SDL_DisplayMode desktop_mode;
+        if (SDL_GetDesktopDisplayMode(0, &desktop_mode) == 0 && w == desktop_mode.w && h == desktop_mode.h) {
+            fs_mode = SDL_WINDOW_FULLSCREEN_DESKTOP;
+        } else {
+            fs_mode = SDL_WINDOW_FULLSCREEN;
+        }
+        flags |= fs_mode;
+    }
 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -89,6 +109,19 @@ void display_create_window(const char* caption, int w, int h, bool fullscreen,
         dftd_startup_log("SDL_CreateWindow failed: %s", SDL_GetError());
         std::cout << "SDL_CreateWindow failed: " << SDL_GetError() << std::endl;
         sdl_throw("Video mode set failed");
+    }
+
+    if (fullscreen && fs_mode == SDL_WINDOW_FULLSCREEN) {
+        SDL_DisplayMode target_mode;
+        SDL_zero(target_mode);
+        target_mode.w = w;
+        target_mode.h = h;
+        SDL_DisplayMode closest;
+        if (SDL_GetClosestDisplayMode(0, &target_mode, &closest) != NULL) {
+            SDL_SetWindowDisplayMode(win, &closest);
+        } else {
+            SDL_SetWindowDisplayMode(win, &target_mode);
+        }
     }
 
     dftd_startup_log("SDL window created successfully. Creating OpenGL context...");
@@ -134,23 +167,67 @@ void display_set_window_size(void* window, int w, int h) {
 
 void display_get_window_size(void* window, int* w, int* h) {
     if (!window) return;
+    SDL_Window* win = static_cast<SDL_Window*>(window);
     SDL_PumpEvents();
-    SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(window), w, h);
-    if (*w <= 0 || *h <= 0) {
-        SDL_GetWindowSize(static_cast<SDL_Window*>(window), w, h);
+    Uint32 flags = SDL_GetWindowFlags(win);
+    if ((flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN) {
+        SDL_DisplayMode mode;
+        if (SDL_GetWindowDisplayMode(win, &mode) == 0 && mode.w > 0 && mode.h > 0) {
+            *w = mode.w;
+            *h = mode.h;
+            return;
+        }
     }
+    SDL_GL_GetDrawableSize(win, w, h);
+    if (*w <= 0 || *h <= 0) {
+        SDL_GetWindowSize(win, w, h);
+    }
+}
+
+void display_set_mode(void* window, int w, int h, bool fullscreen) {
+    if (!window) return;
+    SDL_Window* win = static_cast<SDL_Window*>(window);
+    dftd_startup_log("display_set_mode: %dx%d (fullscreen=%d)...", w, h, fullscreen ? 1 : 0);
+
+    if (fullscreen) {
+        SDL_DisplayMode desktop_mode;
+        int has_desktop = SDL_GetDesktopDisplayMode(0, &desktop_mode);
+        bool is_desktop = (has_desktop == 0 && w == desktop_mode.w && h == desktop_mode.h);
+        Uint32 target_flags = is_desktop ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN;
+
+        SDL_DisplayMode target_mode;
+        SDL_zero(target_mode);
+        target_mode.w = w;
+        target_mode.h = h;
+        target_mode.format = (has_desktop == 0) ? desktop_mode.format : 0;
+
+        SDL_DisplayMode closest;
+        if (SDL_GetClosestDisplayMode(0, &target_mode, &closest) != NULL) {
+            dftd_startup_log("Setting window display mode: %dx%d (format=0x%08x)...", closest.w, closest.h, closest.format);
+            SDL_SetWindowDisplayMode(win, &closest);
+        } else {
+            dftd_startup_log("Setting window display mode: %dx%d...", target_mode.w, target_mode.h);
+            SDL_SetWindowDisplayMode(win, &target_mode);
+        }
+
+        // Toggle through windowed to cleanly switch video mode/dimensions
+        SDL_SetWindowFullscreen(win, 0);
+        SDL_SetWindowSize(win, w, h);
+        int ret = SDL_SetWindowFullscreen(win, target_flags);
+        dftd_startup_log("SDL_SetWindowFullscreen(0x%08x) result: %d", target_flags, ret);
+    } else {
+        SDL_SetWindowFullscreen(win, 0);
+        SDL_SetWindowSize(win, w, h);
+        SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
+    SDL_PumpEvents();
 }
 
 void display_set_fullscreen(void* window, bool fullscreen) {
     if (!window) return;
-    Uint32 flags = fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
-    dftd_startup_log("Setting window fullscreen=%d (flags=0x%08x)...", fullscreen ? 1 : 0, flags);
-    int ret = SDL_SetWindowFullscreen(static_cast<SDL_Window*>(window), flags);
-    if (ret != 0) {
-        dftd_startup_log("SDL_SetWindowFullscreen failed: %s", SDL_GetError());
-    } else {
-        dftd_startup_log("SDL_SetWindowFullscreen succeeded.");
-    }
+    int w = 0, h = 0;
+    display_get_window_size(window, &w, &h);
+    display_set_mode(window, w, h, fullscreen);
 }
 
 uint32_t display_get_window_id(void* window) {

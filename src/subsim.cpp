@@ -1387,6 +1387,9 @@ void apply_mode(widget_list *wlg) {
         sys().set_video_mode(width, height, sys().is_fullscreen_mode(), true);
         config.set("screen_res_y", int(height));
         config.set("screen_res_x", int(width));
+        if (!global_config_dir.empty()) {
+            config.save(global_config_dir + "config");
+        }
         glClearColor(0, 0, 0, 0);
     } catch (exception &e) {
         log_warning("Video mode setup failed: " << e.what());
@@ -1520,7 +1523,8 @@ void menu_opt_video() {
     widget_checkbox *w_fullscreen = new widget_checkbox(right, y + 50, wd, 35, config.getb("fullscreen"), is_de ? "Vollbildmodus" : "Fullscreen mode");
     widget_checkbox *vsync = new widget_checkbox(right, y + 90, wd, 35, config.getb("vsync"), texts::get(720));
 
-    widget_slider *terrain_lod = new widget_slider(x, y + 120, wd, 80, texts::get(112), 3, 9, config.geti("terrain_detail"), 1);
+    widget_slider *terrain_lod = new widget_slider(x, y + 110, wd, 55, texts::get(112), 3, 9, config.geti("terrain_detail"), 1);
+    widget_checkbox *w_widescreen = new widget_checkbox(x, y + 170, wd, 35, config.getb("fill_widescreen"), is_de ? "Breitbild voll ausfüllen" : "Fill widescreen display");
     widget_checkbox *tex_compress = new widget_checkbox(right, y + 130, wd, 35, config.getb("use_compressed_textures"), texts::get(721));
     widget_checkbox *show_fps = new widget_checkbox(right, y + 170, wd, 35, config.getb("show_fps"), is_de ? "FPS-Anzeige einblenden" : "Show FPS counter");
 
@@ -1577,6 +1581,7 @@ void menu_opt_video() {
     w.add_child(vsync);
 
     w.add_child(terrain_lod);
+    w.add_child(w_widescreen);
     w.add_child(tex_compress);
     w.add_child(show_fps);
 
@@ -1598,6 +1603,13 @@ void menu_opt_video() {
     bool old_fullscreen = config.getb("fullscreen");
     bool new_fullscreen = w_fullscreen->is_checked();
     config.set("fullscreen", new_fullscreen);
+
+    bool old_fill_widescreen = config.getb("fill_widescreen");
+    bool new_fill_widescreen = w_widescreen->is_checked();
+    config.set("fill_widescreen", new_fill_widescreen);
+    if (new_fill_widescreen != old_fill_widescreen) {
+        sys().set_fill_widescreen(new_fill_widescreen);
+    }
 
     config.set("vsync", vsync->is_checked());
 
@@ -2054,6 +2066,7 @@ int mymain(list<string> &args) {
     mycfg.register_option("hint_texture_compression", 0);
     mycfg.register_option("vsync", false);
     mycfg.register_option("show_fps", false);
+    mycfg.register_option("fill_widescreen", true);
     mycfg.register_option("water_detail", 128);
     mycfg.register_option("wave_fft_res", 128);
     mycfg.register_option("wave_phases", 256);
@@ -2206,6 +2219,7 @@ int mymain(list<string> &args) {
     params.hint_mipmap = mycfg.geti("hint_mipmap");
     params.hint_texture_compression = mycfg.geti("hint_texture_compression");
     params.vertical_sync = mycfg.getb("vsync");
+    params.fill_widescreen = mycfg.getb("fill_widescreen");
 
     texture::use_compressed_textures = mycfg.getb("use_compressed_textures");
     texture::use_anisotropic_filtering = mycfg.getb("use_ani_filtering");

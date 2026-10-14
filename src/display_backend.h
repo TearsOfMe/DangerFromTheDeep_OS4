@@ -39,6 +39,7 @@ bool display_has_gl_context();
 void display_set_window_size(void* window, int w, int h);
 void display_get_window_size(void* window, int* w, int* h);
 void display_set_fullscreen(void* window, bool fullscreen);
+void display_set_mode(void* window, int w, int h, bool fullscreen);
 uint32_t display_get_window_id(void* window);
 
 void display_swap_buffers(void* window);

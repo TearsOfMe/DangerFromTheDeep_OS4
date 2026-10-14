@@ -64,6 +64,7 @@ class system : public singleton<class system> {
         int hint_mipmap;
         int hint_texture_compression;
         bool vertical_sync;
+        bool fill_widescreen = true;
 
         parameters();
         parameters(double near_z_, double far_z_, unsigned res_x, unsigned res_y, bool fullscreen_);
@@ -158,6 +159,10 @@ class system : public singleton<class system> {
 
     void request_quit() { quit_requested = true; }
     bool is_quit_requested() const { return quit_requested; }
+
+    void set_fill_widescreen(bool fill);
+    bool get_fill_widescreen() const { return params.fill_widescreen; }
+    void update_2d_area();
 
   private:
     bool quit_requested = false;

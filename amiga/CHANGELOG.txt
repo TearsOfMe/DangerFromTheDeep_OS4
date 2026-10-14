@@ -9,6 +9,30 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r9 (2026-10-14)
+------------------------------------
+* FULLSCREEN RESOLUTION SWITCHING:
+  - Fixed changing resolutions in fullscreen mode: Previously, SDL_WINDOW_FULLSCREEN_DESKTOP
+    was hardcoded, preventing actual video mode changes and reverting any selected mode
+    back to the desktop resolution (e.g. 1920x1080).
+  - Implemented display_set_mode(): Switches hardware video modes using SDL_SetWindowDisplayMode
+    and SDL_WINDOW_FULLSCREEN when selecting non-desktop resolutions (e.g. 1024x768, 1280x720,
+    1280x1024) on AmigaOS 4 / Warp3D Nova. Uses borderless desktop fullscreen when matching desktop.
+  - Video mode persistence: Changing resolution now immediately saves the new resolution to
+    the config file.
+  - Enhanced resolution selector: Automatic deduplication and guaranteed availability of standard
+    resolutions (800x600, 1024x768, 1280x720, 1280x1024, 1920x1080).
+
+* WIDESCREEN DISPLAY FILL & ASPECT RATIO:
+  - Added "Breitbild voll ausfüllen" / "Fill widescreen display" option to Video Options
+    (enabled by default).
+  - Eliminates black pillarbox side bars on 16:9 and 16:10 monitors: All 2D screens, menus,
+    gauges, map, TDC, torpedo room, logbook, damage status, and UZO now fill the full width of
+    the display.
+  - Fixed 3D periscope projection alignment: The 3D periscope viewport now dynamically tracks
+    res_area_2d coordinates, ensuring the circular periscope view aligns with the background
+    overlay in both 4:3 and full widescreen modes.
+
 Version 0.3.900-mesa-r8 (2026-10-14)
 ------------------------------------
 * FULLSCREEN MODE & IN-GAME VIDEO OPTIONS:
@@ -150,6 +174,31 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r9 (14.10.2026)
+------------------------------------
+* AUFLÖSUNGSWECHSEL IM VOLLBILDMODUS:
+  - Auflösungswechsel im Vollbildmodus behoben: Zuvor war SDL_WINDOW_FULLSCREEN_DESKTOP
+    fest verdrahtet, wodurch der Grafiktreiber die Auflösung nicht physisch umschaltete
+    und die gewählte Auflösung auf die Desktop-Auflösung (z.B. 1920x1080) zurückgesetzt wurde.
+  - display_set_mode() implementiert: Schaltet über SDL_SetWindowDisplayMode und
+    SDL_WINDOW_FULLSCREEN bei Wahl abweichender Auflösungen (z.B. 1024x768, 1280x720,
+    1280x1024) den echten Hardware-Videomodus auf AmigaOS 4 / Warp3D Nova um. Bei Wahl der
+    Desktop-Auflösung wird für maximale Performance der randlose Desktop-Modus verwendet.
+  - Sofortige Speicherung: Das Ändern der Auflösung im Menü wird nun direkt in der
+    Konfigurationsdatei auf Festplatte gesichert.
+  - Verbesserte Auflösungsauswahl: Duplikate werden bereinigt und Standardauflösungen
+    (800x600, 1024x768, 1280x720, 1280x1024, 1920x1080) stehen zuverlässig zur Auswahl.
+
+* BREITBILD-VOLLBILD & SEITENVERHÄLTNIS:
+  - Neue Option "Breitbild voll ausfüllen" / "Fill widescreen display" in den Video-Optionen
+    integriert (standardmäßig aktiv).
+  - Beseitigt schwarze Seitenbalken (Pillarboxing) auf 16:9 und 16:10 Breitbildmonitoren:
+    Alle 2D-Ansichten, Menüs, Armaturen/Gauges, Seekarte, TDC, Torpedoraum, Kriegstagebuch,
+    Schadensstatus und UZO nutzen nun die volle Bildschirmbreite.
+  - 3D-Sehrohr-Ausrichtung korrigiert: Das 3D-Sehrohr-Sichtfeld passt sich dynamisch an
+    res_area_2d an, sodass der runde Sehrohr-Ausschnitt sowohl im klassischen 4:3-Modus als
+    auch im vollflächigen Breitbildmodus exakt mit der 2D-Maske übereinstimmt.
 
 Version 0.3.900-mesa-r8 (14.10.2026)
 ------------------------------------
