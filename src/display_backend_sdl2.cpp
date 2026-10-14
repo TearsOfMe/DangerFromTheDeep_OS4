@@ -127,11 +127,30 @@ void display_destroy_window(void* window, void* glcontext) {
 }
 
 void display_set_window_size(void* window, int w, int h) {
+    if (!window) return;
     SDL_SetWindowSize(static_cast<SDL_Window*>(window), w, h);
+    SDL_SetWindowPosition(static_cast<SDL_Window*>(window), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
 void display_get_window_size(void* window, int* w, int* h) {
-    SDL_GetWindowSize(static_cast<SDL_Window*>(window), w, h);
+    if (!window) return;
+    SDL_PumpEvents();
+    SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(window), w, h);
+    if (*w <= 0 || *h <= 0) {
+        SDL_GetWindowSize(static_cast<SDL_Window*>(window), w, h);
+    }
+}
+
+void display_set_fullscreen(void* window, bool fullscreen) {
+    if (!window) return;
+    Uint32 flags = fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
+    dftd_startup_log("Setting window fullscreen=%d (flags=0x%08x)...", fullscreen ? 1 : 0, flags);
+    int ret = SDL_SetWindowFullscreen(static_cast<SDL_Window*>(window), flags);
+    if (ret != 0) {
+        dftd_startup_log("SDL_SetWindowFullscreen failed: %s", SDL_GetError());
+    } else {
+        dftd_startup_log("SDL_SetWindowFullscreen succeeded.");
+    }
 }
 
 uint32_t display_get_window_id(void* window) {

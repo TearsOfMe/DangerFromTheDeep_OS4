@@ -114,7 +114,14 @@ void display_destroy_window(void* window, void* glcontext) {
 }
 
 void display_set_window_size(void* window, int w, int h) {
+    if (!window) return;
     SDL_SetWindowSize(static_cast<SDL_Window*>(window), w, h);
+    SDL_SetWindowPosition(static_cast<SDL_Window*>(window), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+}
+
+void display_set_fullscreen(void* window, bool fullscreen) {
+    if (!window) return;
+    SDL_SetWindowFullscreen(static_cast<SDL_Window*>(window), fullscreen);
 }
 
 void display_get_window_size(void* window, int* w, int* h) {

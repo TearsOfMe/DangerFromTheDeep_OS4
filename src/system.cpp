@@ -232,20 +232,16 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
             }
         }
 
-        if (res_x_ == 0 || res_y_ == 0) {
+        if (res_x_ == 0 || res_y_ == 0 || !ok) {
+            if (!ok && res_x_ != 0 && res_y_ != 0) {
+                log_info("Requested fullscreen resolution " << res_x_ << "x" << res_y_
+                         << " not in native mode list, using desktop resolution ("
+                         << max_mode_x << "x" << max_mode_y << ").");
+            }
             res_x_ = max_mode_x;
             res_y_ = max_mode_y;
-        } else if (!ok) {
-            log_warning("Requested fullscreen resolution " << res_x_ << "x" << res_y_
-                        << " not available; falling back to windowed mode.");
-            fullscreen = false;
         }
     }
-
-    //	!Rake SDL_VideoInfo was removed from SDL2
-    //	const SDL_VideoInfo *videoInfo = SDL_GetVideoInfo();
-    //	if (!videoInfo)
-    //		throw sdl_error("Video info query failed");
 
     int vsync_val = params.vertical_sync ? 1 : 0;
     if (!resize) {
@@ -254,7 +250,10 @@ void system::set_video_mode(unsigned &res_x_, unsigned &res_y_, bool fullscreen,
                              &screen, &glcontext);
         window_id = display_get_window_id(screen);
     } else {
-        display_set_window_size(screen, res_x_, res_y_);
+        display_set_fullscreen(screen, fullscreen);
+        if (!fullscreen) {
+            display_set_window_size(screen, res_x_, res_y_);
+        }
     }
 
     int actual_w = 0, actual_h = 0;

@@ -30,6 +30,8 @@ static const char __attribute__((used)) amiga_version_tag[] =
     "\0$VER: DangerFromTheDeep 0.5.1 (14.10.2026) AmigaOS 4 Port by TearsOfMe";
 #endif
 
+static std::string global_config_dir;
+
 #include <time.h>
 
 #include "oglext/OglExt.h"
@@ -1512,13 +1514,15 @@ void menu_opt_video() {
     widget w(0, 0, 1024, 768, "", 0, "titlebackgr.jpg");
     widget_menu *wm = new widget_menu(x, y, wd, 40, texts::get(707));
 
+    bool is_de = (texts::get_language_code() == "de");
+
     widget_button *resolution = new widget_func_button<void (*)()>(&menu_resolution, x, y + 60, wd, 40, texts::get(106));
-    widget_checkbox *vsync = new widget_checkbox(right, y + 60, wd, 40, config.getb("vsync"), texts::get(720));
+    widget_checkbox *w_fullscreen = new widget_checkbox(right, y + 50, wd, 35, config.getb("fullscreen"), is_de ? "Vollbildmodus" : "Fullscreen mode");
+    widget_checkbox *vsync = new widget_checkbox(right, y + 90, wd, 35, config.getb("vsync"), texts::get(720));
 
     widget_slider *terrain_lod = new widget_slider(x, y + 120, wd, 80, texts::get(112), 3, 9, config.geti("terrain_detail"), 1);
-    widget_checkbox *tex_compress = new widget_checkbox(right, y + 120, wd, 40, config.getb("use_compressed_textures"), texts::get(721));
-    bool is_de = (texts::get_language_code() == "de");
-    widget_checkbox *show_fps = new widget_checkbox(right, y + 165, wd, 40, config.getb("show_fps"), is_de ? "FPS-Anzeige einblenden" : "Show FPS counter");
+    widget_checkbox *tex_compress = new widget_checkbox(right, y + 130, wd, 35, config.getb("use_compressed_textures"), texts::get(721));
+    widget_checkbox *show_fps = new widget_checkbox(right, y + 170, wd, 35, config.getb("show_fps"), is_de ? "FPS-Anzeige einblenden" : "Show FPS counter");
 
     widget_list *wfx_quality = new widget_list(x + (wd / 2), y + 220, wd / 2, 80);
     widget_text *wfx_quality_txt = new widget_text(x, y + 220, wd / 2, 20, texts::get(713));
@@ -1569,6 +1573,7 @@ void menu_opt_video() {
     w.add_child(wm);
 
     w.add_child(resolution);
+    w.add_child(w_fullscreen);
     w.add_child(vsync);
 
     w.add_child(terrain_lod);
@@ -1590,6 +1595,10 @@ void menu_opt_video() {
     w.run(0, false);
 
     // save settings
+    bool old_fullscreen = config.getb("fullscreen");
+    bool new_fullscreen = w_fullscreen->is_checked();
+    config.set("fullscreen", new_fullscreen);
+
     config.set("vsync", vsync->is_checked());
 
     config.set("terrain_detail", terrain_lod->get_curr_value());
@@ -1622,6 +1631,30 @@ void menu_opt_video() {
         config.set("use_multisampling", true);
         // TODO - implement this, kind of held back by the lack of easy of detecting suitable/MAX values.
         // config.set("multisampling_level", ??? );
+    }
+
+    if (new_fullscreen != old_fullscreen) {
+        try {
+            unsigned cur_x, cur_y;
+            if (new_fullscreen) {
+                cur_x = sys().get_res_x();
+                cur_y = sys().get_res_y();
+            } else {
+                cur_x = config.geti("screen_res_x");
+                cur_y = config.geti("screen_res_y");
+                if (cur_x == 0 || cur_y == 0) {
+                    cur_x = 1024;
+                    cur_y = 768;
+                }
+            }
+            sys().set_video_mode(cur_x, cur_y, new_fullscreen, true);
+        } catch (exception &e) {
+            log_warning("Fullscreen toggle failed: " << e.what());
+        }
+    }
+
+    if (!global_config_dir.empty()) {
+        config.save(global_config_dir + "config");
     }
 
     // TODO: something about this ? we need to convert or update existing code that uses the boolean use_hqsfx
@@ -1808,6 +1841,7 @@ int mymain(list<string> &args) {
 #else
         (getenv("HOME") ? (string(getenv("HOME")) + "/.dangerdeep/") : "./config/");
 #endif
+    global_config_dir = configdirectory;
     // command line argument parsing
     unsigned res_x = 0, res_y = 0;
 #ifdef __amigaos4__
@@ -1815,6 +1849,7 @@ int mymain(list<string> &args) {
 #else
     bool fullscreen = true;
 #endif
+    bool fullscreen_cmd_override = false;
     string cmdmissionfilename;
     bool runeditor = false;
     unsigned maxfps = 60;
@@ -1827,7 +1862,8 @@ int mymain(list<string> &args) {
             cout << "*** Danger from the Deep ***\nusage:\n--help\t\tshow this\n"
                  << "--language \tuse the listed language CODEs from the common.cvs file. \"en\" is the default language\n"
                  << "--res X*Y\tuse resolution X horizontal, Y vertical.\n\t\tDefault is 1024*768. If no Y value is given, Y=3/4*X is assumed.\n"
-                 << "--nofullscreen\tdon't use fullscreen\n"
+                 << "--fullscreen\trun in fullscreen mode\n"
+                 << "--nofullscreen\tdon't use fullscreen (windowed mode)\n"
                  << "--debug\t\tdebug mode: no fullscreen, resolution 800\n"
                  << "--editor\trun mission editor directly\n"
                  << "--editordate yyyy/mm/dd\tset start date for editor\n"
@@ -1843,10 +1879,15 @@ int mymain(list<string> &args) {
                  << "--maxfps x\tset maximum fps to x frames per second (default 60). Use x=0 to disable fps limit.\n"
                  << "--consolelog\tcopy log output to current console\n";
             return 0;
+        } else if (*it == "--fullscreen") {
+            fullscreen = true;
+            fullscreen_cmd_override = true;
         } else if (*it == "--nofullscreen") {
             fullscreen = false;
+            fullscreen_cmd_override = true;
         } else if (*it == "--debug") {
             fullscreen = false;
+            fullscreen_cmd_override = true;
             res_x = 800;
             res_y = 600;
         } else if (*it == "--mission") {
@@ -1953,6 +1994,7 @@ int mymain(list<string> &args) {
                     cout << "ERROR: config directory is no directory!\n";
                     return -1;
                 }
+                global_config_dir = configdirectory;
                 ++it;
             }
         } else if (*it == "--language") { // included 2006/11/14 by doc1972
@@ -2137,6 +2179,10 @@ int mymain(list<string> &args) {
     if (res_x == 0) {
         res_x = mycfg.geti("screen_res_x");
         res_y = mycfg.geti("screen_res_y");
+    }
+
+    if (!fullscreen_cmd_override) {
+        fullscreen = mycfg.getb("fullscreen");
     }
 
     // Read language from options-file

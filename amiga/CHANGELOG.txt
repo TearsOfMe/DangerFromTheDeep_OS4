@@ -9,6 +9,19 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r8 (2026-10-14)
+------------------------------------
+* FULLSCREEN MODE & IN-GAME VIDEO OPTIONS:
+  - Added Fullscreen mode toggle checkbox in the Video Options menu ("Vollbildmodus" /
+    "Fullscreen mode") alongside VSync, texture compression, and FPS display.
+  - Dynamic live mode switching: Toggling the checkbox in Video Options immediately
+    switches between windowed mode and borderless fullscreen desktop without restarting.
+  - Restoring windowed mode: Automatically restores the user's preferred window
+    resolution (e.g. 1024x768) and centers the window on the Workbench screen.
+  - Command-line support: Added '--fullscreen' and improved '--nofullscreen' arguments.
+  - Config persistence: The 'fullscreen' option is now properly loaded from config file
+    on startup, and Video Options settings are immediately saved to disk.
+
 Version 0.3.900-mesa-r7 (2026-10-14)
 ------------------------------------
 * FIX 100% CPU LOCKUP & FREEZE ON IN-GAME EXIT / ESC / WINDOW CLOSE:
@@ -137,6 +150,22 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r8 (14.10.2026)
+------------------------------------
+* VOLLBILDMODUS & OPTIONEN-MENÜ:
+  - Vollbild-Umschaltfunktion im Video-Optionen-Menü hinzugefügt ("Vollbildmodus" /
+    "Fullscreen mode") neben V-Sync, Texturkompression und FPS-Anzeige.
+  - Dynamisches Live-Umschalten: Das Ändern der Option im Menü schaltet direkt zwischen
+    Fenstermodus und randlosem Vollbild-Desktop um, ohne das Spiel neu starten zu müssen.
+  - Rückkehr zum Fenstermodus: Stellt beim Deaktivieren des Vollbildmodus automatisch die
+    bevorzugte Fensterauflösung (z.B. 1024x768) wieder her und zentriert das Fenster auf
+    dem Workbench-Bildschirm.
+  - Kommandozeilen-Parameter: Unterstützung für '--fullscreen' hinzugefügt und
+    '--nofullscreen' optimiert.
+  - Konfigurationsspeicherung: Die Einstellung 'fullscreen' wird nun beim Spielstart
+    korrekt aus der Konfigurationsdatei geladen und Änderungen im Video-Menü werden
+    sofort auf Festplatte gesichert.
 
 Version 0.3.900-mesa-r7 (14.10.2026)
 ------------------------------------
