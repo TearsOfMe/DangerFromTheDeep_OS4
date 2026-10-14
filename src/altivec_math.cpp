@@ -36,9 +36,11 @@ static inline __vector float altivec_rsqrt_vec(__vector float v) {
     __vector float one_point_five = (__vector float){1.5f, 1.5f, 1.5f, 1.5f};
     __vector float zero = (__vector float){0.0f, 0.0f, 0.0f, 0.0f};
 
+    // Newton-Raphson refinement: est * (1.5 - 0.5 * v * est^2)
     __vector float est_sq = vec_madd(est, est, zero);
     __vector float v_est_sq = vec_madd(v, est_sq, zero);
-    __vector float nr = vec_nmsub(half, one_point_five, v_est_sq);
+    __vector float half_v_est_sq = vec_madd(half, v_est_sq, zero);
+    __vector float nr = vec_sub(one_point_five, half_v_est_sq);
     return vec_madd(est, nr, zero);
 }
 
