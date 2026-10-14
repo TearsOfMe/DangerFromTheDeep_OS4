@@ -9,6 +9,23 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r14 (2026-10-14)
+-------------------------------------
+* FIX 3D MODELS DISAPPEARING (SUBMARINE & SHIPS IN FREE VIEW & BRIDGE VIEW):
+  - Fixed disappearance of submarine in Free View and ships popping in/out at the horizon in Bridge View:
+    1) Removed faulty software frustum culling (`sphere_in_frustum`) in freeview_display::draw_objects:
+       The previous check incorrectly tested absolute world coordinates (`(*it)->get_pos()`, hundreds of
+       kilometers away from origin) against the camera-relative viewing frustum (centered at 0,0,0).
+       As soon as the camera rotated or moved, the frustum planes rejected the world coordinates,
+       causing the player's submarine model to suddenly vanish into thin air in Free View, and horizon
+       ships to disappear when moving or scanning around from the bridge.
+    2) Restored clean native rendering of visible objects:
+       The object list is already filtered by the lookout/sensors (`player->get_visible_objects()`),
+       and the GPU hardware clipper effortlessly and perfectly clips off-screen geometry with zero
+       CPU overhead and zero risk of model popping or disappearing.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
 Version 0.3.900-mesa-r13 (2026-10-14)
 -------------------------------------
 * FIX WATER SHADER COMPILATION, RESTORE MESA SHADER CACHE & WAVE ANIMATION:
@@ -234,6 +251,23 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r14 (14.10.2026)
+--------------------------------------
+* KORREKTUR VERSCHWINDENDE 3D-MODELLE (U-BOOT & SCHIFFE IN FREE- & BRUECKEN-ANSICHT):
+  - Behebung des ploetzlichen Verschwindens des U-Boots in der Free-View und von Schiffen am Horizont:
+    1) Fehlerhaftes Software-Frustum-Culling (`sphere_in_frustum`) in freeview_display::draw_objects entfernt:
+       Die bisherige Pruefung testete irrtuemlich absolute Weltkoordinaten (`(*it)->get_pos()`, hunderte
+       Kilometer vom Nullpunkt entfernt) gegen die kamera-relative Viewing-Frustum (Zentrum bei 0,0,0).
+       Sobald sich die Kamera drehte oder bewegte, rotierten die Frustum-Ebenen und verwarfen die
+       Weltkoordinaten. Dadurch verschwand in der Free-View ploetzlich das eigene U-Boot-Modell und
+       in der Brueckenansicht ploppten Schiffe am Horizont bei Kamerabewegungen spontan weg.
+    2) Sauberes Rendering sichtbarer Objekte wiederhergestellt:
+       Die Liste der Objekte ist durch die Ausguck- und Sensorsysteme bereits vorab gefiltert
+       (`player->get_visible_objects()`). Das GPU-Hardware-Clipping schneidet ausserhalb des Sichtfelds
+       liegende Polygone vollautomatisch und verlustfrei ab – ohne CPU-Overhead und ohne Culling-Fehler.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
 
 Version 0.3.900-mesa-r13 (14.10.2026)
 --------------------------------------

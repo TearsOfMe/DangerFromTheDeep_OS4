@@ -69,8 +69,7 @@ class freeview_display : public user_display {
                               const std::vector<sea_object *> &objects,
                               const colorf &light_color,
                               const bool underwater,
-                              bool mirrorclip,
-                              const class frustum *vf = nullptr) const;
+                              bool mirrorclip) const;
 
     // draw the whole view
     virtual void draw_view(class game &gm, const vector3 &viewpos) const;

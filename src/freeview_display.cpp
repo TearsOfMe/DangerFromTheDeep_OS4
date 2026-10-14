@@ -241,8 +241,7 @@ void freeview_display::draw_objects(game &gm, const vector3 &viewpos,
                                     const vector<sea_object *> &objects,
                                     const colorf &light_color,
                                     const bool under_water,
-                                    bool mirrorclip,
-                                    const frustum *vf) const {
+                                    bool mirrorclip) const {
     // simulate horizon: d is distance to object (on perimeter of earth)
     // z is additional height (negative!), r is earth radius
     // z = r*sin(PI/2 - d/r) - r
@@ -257,13 +256,6 @@ void freeview_display::draw_objects(game &gm, const vector3 &viewpos,
 
         if (aboard && *it == player)
             continue;
-
-        if (vf && !mirrorclip) {
-            vector3 objpos = (*it)->get_pos();
-            double radius = (*it)->get_bounding_radius() + 20.0;
-            if (!vf->sphere_in_frustum(objpos, radius))
-                continue;
-        }
 
         glPushMatrix();
 
@@ -722,7 +714,7 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
 
     // substract player pos.
     dftd_startup_log("freeview_display: rendering objects...");
-    draw_objects(gm, viewpos, objects, lightcol, (above_water < 0) ? true : false /* under water */, false /* mirrorclip */, &viewfrustum);
+    draw_objects(gm, viewpos, objects, lightcol, (above_water < 0) ? true : false /* under water */, false /* mirrorclip */);
     dftd_startup_log("freeview_display: objects rendered.");
 
     // ******************** draw the bridge in higher detail
