@@ -9,6 +9,27 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r13 (2026-10-14)
+-------------------------------------
+* FIX WATER SHADER COMPILATION, RESTORE MESA SHADER CACHE & WAVE ANIMATION:
+  - Fixed shader caching & wave motion freeze caused by negative power exponent in water.fshader:
+    1) Restored proven Schlick Fresnel approximation in water.fshader:
+       Replaced `pow(fresnel, -8.0) * 0.8` with `0.02 + 0.98 * pow(clamp(1.0 - doten, 0.0, 1.0), 5.0)`.
+       Negative exponent powers in GLSL are either invalid or produce driver-level shader
+       lowering failures on Mesa PowerPC/Nova, which prevented Mesa from writing the compiled
+       program to the on-disk shader cache (`mesa_shader_cache/`) and disabled normal map
+       perturbation (freezing visible wave motion).
+    2) Restored vibrant North Atlantic wave contrast and dynamic wave lighting:
+       Restored `wavetop = color(35, 95, 115)` and `wavebottom = color(18, 55, 85)` in
+       water::set_refraction_color(). This provides proper luminance contrast between wave crests
+       and troughs, making wave motion clearly visible and dynamic under varying sun angles.
+    3) Restored reflection texture buffer clear color in water::refltex_render_bind() to clearcol
+       (horizon sky color) to ensure reflections seamlessly integrate into the sky.
+    4) Restored atmospheric fog density to 0.0005f in water constructor and freeview_display.
+    5) Preserved fullscreen viewport restoration in refltex_render_unbind() for non-FBO paths.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
 Version 0.3.900-mesa-r12 (2026-10-14)
 -------------------------------------
 * RESTORATION OF AUTHENTIC DEEP OCEAN WATER RENDERING:
@@ -213,6 +234,28 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r13 (14.10.2026)
+--------------------------------------
+* KORREKTUR WASSER-SHADER, WIEDERHERSTELLUNG MESA-SHADER-CACHE & WELLENBEWEGUNG:
+  - Behebung des Shader-Cache- und Einfrier-Problems durch negativen Exponenten in water.fshader:
+    1) Bewaehrte Schlick-Fresnel-Formel in water.fshader wiederhergestellt:
+       `pow(fresnel, -8.0) * 0.8` durch `0.02 + 0.98 * pow(clamp(1.0 - doten, 0.0, 1.0), 5.0)` ersetzt.
+       Negative Exponenten in GLSLfuehrten im Mesa-Shader-Compiler/Treiber auf PowerPC/Nova
+       zu Fehlern bei der Code-Generierung. Dadurch speicherte Mesa den kompilierten Shader
+       nicht mehr auf der Festplatte (`mesa_shader_cache/`) und die Normal-Map-Verzerrung fiel
+       aus, wodurch die Wellenanimation komplett einfrierte.
+    2) Kraeftige Nordatlantik-Wellenkontraste und dynamische Wellenbeleuchtung wiederhergestellt:
+       `wavetop = color(35, 95, 115)` und `wavebottom = color(18, 55, 85)` in
+       water::set_refraction_color() wiederhergestellt. Dies erzeugt den noetigen Helligkeitskontrast
+       zwischen Wellenkaemmen und Wellentaeler, sodass die Wellenbewegung bei allen Sonnenstaenden
+       klar und plastisch sichtbar ist.
+    3) Puffer-Loeschfarbe in water::refltex_render_bind() wieder auf clearcol (Horizont-Himmelsfarbe)
+       gesetzt, damit sich Reflexionen nahtlos in den Himmel einfuegen.
+    4) Nebeldichte auf 0.0005f in Konstruktor und freeview_display zurueckgesetzt.
+    5) Viewport-Wiederherstellung auf Vollbild in refltex_render_unbind() beibehalten.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
 
 Version 0.3.900-mesa-r12 (14.10.2026)
 --------------------------------------
