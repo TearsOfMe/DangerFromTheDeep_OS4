@@ -537,7 +537,7 @@ void freeview_display::draw_view(game &gm, const vector3 &viewpos) const {
     glFogi(GL_FOG_MODE, GL_EXP);
     glFogfv(GL_FOG_COLOR, horizon_color);
     ui.get_water().set_fog(colorf(horizon_color[0], horizon_color[1], horizon_color[2]),
-                           above_water == 1 ? 0.0005f : 0.005f);
+                           above_water == 1 ? 0.0001f : 0.005f);
     // values for fog density:
     // 0.0005 - 0.002 good weather, higher numbers give more haze
     if (1 == above_water) {

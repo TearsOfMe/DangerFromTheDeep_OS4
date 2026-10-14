@@ -156,7 +156,7 @@ water::water(double tm, cfg &configuration) : mytime(tm),
                               wave_tidecycle_time),
                           use_hqsfx(false),
                           current_fog_color(0.5f, 0.6f, 0.7f),
-                          current_fog_density(0.0005f),
+                          current_fog_density(0.0001f),
                           vattr_aof_index(0),
                           rerender_new_wtp(true),
                           geoclipmap_resolution(std::min(cmpdtl(configuration.geti("water_detail")), 32u)), // clamp to 32 max for performance
@@ -1253,8 +1253,8 @@ void water::set_refraction_color(const colorf &light_color) {
     //	color wavetop = color(color(10, 10, 10), color(18, 93, 77), light_brightness);
     //	color wavebottom = color(color(10, 10, 20), color(18, 73, 107), light_brightness);
     // Realistic North Atlantic ocean colors: deep marine blue depths, natural ocean surface
-    colorf wavetop = light_color.lerp(colorf(color(0, 0, 0)), colorf(color(35, 95, 115)));
-    colorf wavebottom = light_color.lerp(colorf(color(0, 0, 0)), colorf(color(18, 55, 85)));
+    colorf wavetop = light_color.lerp(colorf(color(4, 10, 16)), colorf(color(49, 83, 94)));
+    colorf wavebottom = light_color.lerp(colorf(color(2, 6, 12)), colorf(color(29, 56, 91)));
 
     float wt[3], wb[3];
     wavetop.store_rgb(wt);
@@ -1290,8 +1290,8 @@ void water::refltex_render_bind(const colorf &clearcol) const {
         glViewport(0, 0, reflectiontex->get_width(), reflectiontex->get_height());
     }
 
-    // Clear to horizon sky color so reflection texture edges blend into the sky seamlessly
-    glClearColor(clearcol.r, clearcol.g, clearcol.b, 0.0f);
+    // Clear to deep ocean blue so reflections have a dark water base
+    glClearColor(0.0f, 1.0f / 16.0f, 1.0f / 8.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 

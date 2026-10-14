@@ -9,6 +9,28 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r12 (2026-10-14)
+-------------------------------------
+* RESTORATION OF AUTHENTIC DEEP OCEAN WATER RENDERING:
+  - Fully restored proven Oct 8th water solution ("Lösung von damals"):
+    1) Restored authentic North Atlantic ocean water colors in water::set_refraction_color:
+       wavetop base set to color(4, 10, 16) / color(49, 83, 94) and wavebottom
+       set to color(2, 6, 12) / color(29, 56, 91), bringing back deep marine blue depths
+       and realistic wave surface tone instead of washed-out white/pale haze.
+    2) Restored reflection buffer clear color in water::refltex_render_bind:
+       Buffer is cleared to deep ocean blue (0.0f, 1/16f, 1/8f) rather than horizon sky,
+       preventing water reflections from being overwhelmed with chalk-white sky reflections.
+    3) Restored authentic Fresnel falloff in water.fshader: Replaced Schlick's formula
+       with original pow(fresnel, -8.0) * 0.8, allowing rich ocean upwelling color to
+       dominate at bridge and close/mid viewing angles (1%-30% reflection), with sky
+       reflection only appearing at distant grazing angles.
+    4) Restored specular sun glints (multiplier 5.0) and diffuse lighting dl = dot(L, N) * 0.6 + 0.4.
+    5) Balanced atmospheric fog density for 20km ocean visibility: Set water fog density
+       to 0.0001f (in constructor and freeview_display), keeping water clear and vivid up to
+       5-10 km, while distant ocean (>15km) merges seamlessly into the horizon sky with zero
+       dark bands, artifacts, or black blocks.
+
+
 Version 0.3.900-mesa-r11 (2026-10-14)
 -------------------------------------
 * WATER & HORIZON VISUAL ARTIFACTS FIX:
@@ -191,6 +213,27 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r12 (14.10.2026)
+--------------------------------------
+* WIEDERHERSTELLUNG DES AUTHENTISCHEN TIEFENWASSER-RENDERINGS:
+  - Vollstaendige Wiederherstellung der bewaehrten Loesung vom 8. Oktober ("Loesung von damals"):
+    1) Authentische Nordatlantik-Wasserfarben in water::set_refraction_color wiederhergestellt:
+       wavetop auf color(4, 10, 16) / color(49, 83, 94) und wavebottom auf
+       color(2, 6, 12) / color(29, 56, 91) gesetzt, wodurch das tiefe Meeresblau
+       und die natuerliche Wellentoenung zurueckkehren statt blasser/kreideweisser Flaechen.
+    2) Puffer-Loeschfarbe der Reflexionstextur in water::refltex_render_bind korrigiert:
+       Der Puffer wird nun auf tiefes Ozeanblau (0.0f, 1/16f, 1/8f) statt Horizont-Himmel
+       geloescht, wodurch uebermaessige Himmelsreflexionen auf dem Wasser verhindert werden.
+    3) Authentischen Fresnel-Term in water.fshader wiederhergestellt: Schlick-Formel
+       durch originales pow(fresnel, -8.0) * 0.8 ersetzt, sodass bei normalen Blickwinkeln
+       von der Bruecke das satte Ozeanwasser dominiert und Reflexionen nur bei flachen
+       Winkeln am Horizont ueberwiegen.
+    4) Sonnen-Glints (Multiplikator 5.0) und diffuse Ausleuchtung dl = dot(L, N) * 0.6 + 0.4 wiederhergestellt.
+    5) Atmosphaerischen Nebel auf 20 km Sichtweite austariert: Nebeldichte auf 0.0001f gesetzt,
+       sodass das Wasser auf 0-10 km kristallklar und kraeftig blau bleibt und sich erst
+       ab 15-20 km nahtlos ohne schwarze Balken oder Kanten in den Himmel einfuegt.
+
 
 Version 0.3.900-mesa-r11 (14.10.2026)
 --------------------------------------
