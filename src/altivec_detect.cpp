@@ -4,8 +4,7 @@
 #include <cstdio>
 
 #if defined(__amigaos4__)
-#include <proto/exec.h>
-#include <exec/exectags.h>
+#include "amigaos_compat.h"
 #endif
 
 bool g_cpu_has_altivec = false;
@@ -17,29 +16,27 @@ bool cpu_detect_altivec_init() {
     }
 
     bool has = false;
-    const char *detected_via = "None";
-
-#if defined(__amigaos4__)
-    if (IExec) {
-        uint32 vector_unit = VECTORTYPE_NONE;
-        CONST_STRPTR model_str = NULL;
-        IExec->GetCPUInfoTags(
-            GCIT_ModelString, &model_str,
-            GCIT_VectorUnit, &vector_unit,
-            TAG_DONE);
-
 #if !defined(DFTD_NO_DEBUG_LOG)
-        printf("\n======================================================\n");
-        printf("[CPU-DETECT] AmigaOS ExecSG CPU Info:\n");
-        printf("[CPU-DETECT]   CPU Model: %s\n", model_str ? (const char *)model_str : "Unknown PPC");
-        printf("[CPU-DETECT]   VectorUnit: %u (ALTIVEC constant: %u)\n",
-               (unsigned)vector_unit, (unsigned)VECTORTYPE_ALTIVEC);
+    const char *detected_via = "None";
 #endif
 
-        if (vector_unit == (uint32)VECTORTYPE_ALTIVEC) {
-            has = true;
-            detected_via = "AmigaOS4 ExecSG GCIT_VectorUnit";
-        }
+#if defined(__amigaos4__)
+    const char *model_str = NULL;
+    unsigned int vector_unit = 0;
+    int is_vec = amigaos_detect_altivec(&model_str, &vector_unit);
+
+#if !defined(DFTD_NO_DEBUG_LOG)
+    printf("\n======================================================\n");
+    printf("[CPU-DETECT] AmigaOS ExecSG CPU Info:\n");
+    printf("[CPU-DETECT]   CPU Model: %s\n", model_str ? model_str : "Unknown PPC");
+    printf("[CPU-DETECT]   VectorUnit: %u (ALTIVEC constant: 1)\n", vector_unit);
+#endif
+
+    if (is_vec) {
+        has = true;
+#if !defined(DFTD_NO_DEBUG_LOG)
+        detected_via = "AmigaOS4 ExecSG GCIT_VectorUnit";
+#endif
     }
 #endif
 
@@ -51,7 +48,9 @@ bool cpu_detect_altivec_init() {
 
     if (!has && sdl_vec) {
         has = true;
+#if !defined(DFTD_NO_DEBUG_LOG)
         detected_via = "SDL_HasAltiVec()";
+#endif
     }
 
 #if !defined(DFTD_NO_DEBUG_LOG)

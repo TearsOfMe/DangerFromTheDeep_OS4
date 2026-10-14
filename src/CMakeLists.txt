@@ -303,6 +303,10 @@ set(INC
 
 set(MAIN_SRC ${DFTDSOURCES} ${DFTDMEDIASOURCES} ${FILEHELPER_OBJ} ${WIDGET_OBJ} ${FRUSTUM_OBJ} ${DATADIRSOBJ} ${GLOBALDATAOBJ} ${THREADS_OBJ} ${FAULT_HDLR_SRC} ${OGLEXT_SRC} ${OGLEXT_INC})
 
+if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
+	list(APPEND MAIN_SRC amigaos_compat.c)
+endif()
+
 if(USE_UNITY STREQUAL "ON")
 		enable_unity_build(dangerdeep MAIN_SRC )
 endif(USE_UNITY STREQUAL "ON")
@@ -313,7 +317,7 @@ add_executable(dangerdeep ${MAIN_SRC} ${INC})
 # rest of the program still runs on CPUs without a vector unit).
 if(CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
 	set_source_files_properties(altivec_math.cpp PROPERTIES COMPILE_FLAGS "-maltivec -mabi=altivec")
-	set_source_files_properties(altivec_math.cpp altivec_detect.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+	set_source_files_properties(amigaos_compat.c altivec_math.cpp altivec_detect.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
 
 # Precompiled Headers: acelera compilación pre-compilando headers pesados usados frecuentemente

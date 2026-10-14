@@ -30,6 +30,7 @@ static const char __attribute__((used)) amiga_version_tag[] =
     "\0$VER: DangerFromTheDeep 0.5.1 (14.10.2026) AmigaOS 4 Port by TearsOfMe";
 #endif
 
+#include <string>
 static std::string global_config_dir;
 
 #include <time.h>

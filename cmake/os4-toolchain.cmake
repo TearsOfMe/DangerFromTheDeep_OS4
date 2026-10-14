@@ -9,7 +9,7 @@ set(CMAKE_AR ppc-amigaos-ar)
 set(CMAKE_RANLIB ppc-amigaos-ranlib)
 
 set(CMAKE_C_FLAGS_INIT "-athread=native")
-set(CMAKE_CXX_FLAGS_INIT "-athread=native")
+set(CMAKE_CXX_FLAGS_INIT "-athread=native -D_GLIBCXX_USE_STD_SPEC_FUNCS=0 -D__STDCPP_WANT_MATH_SPEC_FUNCS__=0")
 
 set(CMAKE_PREFIX_PATH
     /opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib

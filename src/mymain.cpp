@@ -48,14 +48,7 @@ using namespace std;
 #include <cstdlib>
 
 #if defined(__amigaos4__)
-#include <proto/exec.h>
-#include <dos/dos.h>
-#include <dos/dosextens.h>
-
-// Disable newlib's automatic CON: window creation when launched from Workbench
-extern "C" {
-    const char *__stdiowin = "NIL:";
-}
+#include "amigaos_compat.h"
 #endif
 
 #if defined(DFTD_NO_DEBUG_LOG)
@@ -120,18 +113,18 @@ int mymain(list<string> &args);
 
 int call_mymain(list<string> &args) {
 #if defined(__amigaos4__)
-    struct Task *self_task = IExec ? IExec->FindTask(NULL) : NULL;
-    struct Process *self_proc = (struct Process *)self_task;
-    if (self_proc && self_proc->pr_CLI == 0) {
+    if (amigaos_is_launched_from_workbench()) {
         // Launched from Workbench (no CLI attached):
         // Redirect stdout and stderr to NIL: to prevent any Shell/CON: window from opening.
-        freopen("NIL:", "w", stdout);
-        freopen("NIL:", "w", stderr);
+        FILE *f_out = stdout;
+        FILE *f_err = stderr;
+        if (f_out) freopen("NIL:", "w", f_out);
+        if (f_err) freopen("NIL:", "w", f_err);
     }
 #if !defined(DFTD_NO_DEBUG_LOG)
     // For debug build: if executable name contains "Debug", auto-enable debug log!
-    if (self_proc && self_proc->pr_Task.tc_Node.ln_Name &&
-        strstr(self_proc->pr_Task.tc_Node.ln_Name, "Debug")) {
+    const char *proc_name = amigaos_get_process_name();
+    if (proc_name && strstr(proc_name, "Debug")) {
         s_debug_log_enabled = true;
     }
 #endif

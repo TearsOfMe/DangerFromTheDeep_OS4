@@ -3,12 +3,11 @@
 #if defined(__amigaos4__)
 
 #include "log.h"
+#include "amigaos_compat.h"
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <exception>
-#include <proto/exec.h>
-#include <dos/dos.h>
 #if __has_include(<SDL2/SDL.h>)
 #include <SDL2/SDL.h>
 #elif __has_include(<SDL.h>)
@@ -20,7 +19,7 @@
 #include <SDL_mixer.h>
 #endif
 
-static struct Task *s_main_task = NULL;
+static void *s_main_task = NULL;
 static bool s_audio_stopped = false;
 
 void amiga_mark_audio_stopped() {
@@ -46,8 +45,8 @@ static void amiga_safe_audio_stop() {
 }
 
 static void amiga_terminate_handler() {
-    struct Task *cur_task = IExec ? IExec->FindTask(NULL) : NULL;
-    const char *tname = (cur_task && cur_task->tc_Node.ln_Name) ? cur_task->tc_Node.ln_Name : "unknown";
+    void *cur_task = amigaos_get_current_task();
+    const char *tname = amigaos_get_task_name(cur_task);
     dftd_startup_log("FATAL: std::terminate() called in task '%s' (0x%p, main=0x%p)!", tname, cur_task, s_main_task);
     std::exception_ptr p = std::current_exception();
     if (p) {
@@ -63,10 +62,7 @@ static void amiga_terminate_handler() {
     }
     if (s_main_task && cur_task != s_main_task) {
         dftd_startup_log("FATAL: terminate in child thread, signaling main task to terminate...");
-        IExec->Signal(s_main_task, SIGBREAKF_CTRL_C);
-        for (;;) {
-            IExec->Wait(0);
-        }
+        amigaos_signal_task_and_wait(s_main_task);
     } else {
         amiga_safe_audio_stop();
         exit(128 + SIGABRT);
@@ -74,17 +70,14 @@ static void amiga_terminate_handler() {
 }
 
 extern "C" void __assert(const char *file, int line, const char *failedexpr) {
-    struct Task *cur_task = IExec ? IExec->FindTask(NULL) : NULL;
-    const char *tname = (cur_task && cur_task->tc_Node.ln_Name) ? cur_task->tc_Node.ln_Name : "unknown";
+    void *cur_task = amigaos_get_current_task();
+    const char *tname = amigaos_get_task_name(cur_task);
     dftd_startup_log("FATAL: Assertion failed: (%s) at %s:%d in task '%s' (0x%p)!",
                      failedexpr ? failedexpr : "null",
                      file ? file : "unknown",
                      line, tname, cur_task);
     if (s_main_task && cur_task != s_main_task) {
-        IExec->Signal(s_main_task, SIGBREAKF_CTRL_C);
-        for (;;) {
-            IExec->Wait(0);
-        }
+        amigaos_signal_task_and_wait(s_main_task);
     } else {
         amiga_safe_audio_stop();
         exit(128 + SIGABRT);
@@ -115,16 +108,13 @@ void print_stack_trace() {
 }
 
 extern "C" void abort(void) {
-    struct Task *cur_task = IExec ? IExec->FindTask(NULL) : NULL;
-    const char *tname = (cur_task && cur_task->tc_Node.ln_Name) ? cur_task->tc_Node.ln_Name : "unknown";
+    void *cur_task = amigaos_get_current_task();
+    const char *tname = amigaos_get_task_name(cur_task);
     dftd_startup_log("FATAL: abort() was called directly in task '%s' (0x%p)!", tname, cur_task);
     print_stack_trace();
     if (s_main_task && cur_task != s_main_task) {
         dftd_startup_log("FATAL: abort() in child thread! Signaling main task to terminate...");
-        IExec->Signal(s_main_task, SIGBREAKF_CTRL_C);
-        for (;;) {
-            IExec->Wait(0);
-        }
+        amigaos_signal_task_and_wait(s_main_task);
     } else {
         amiga_safe_audio_stop();
         exit(128 + SIGABRT);
@@ -132,15 +122,13 @@ extern "C" void abort(void) {
 }
 
 static void amiga_break_handler(int sig) {
-    struct Task *cur_task = IExec ? IExec->FindTask(NULL) : NULL;
-    const char *tname = (cur_task && cur_task->tc_Node.ln_Name) ? cur_task->tc_Node.ln_Name : "unknown";
+    void *cur_task = amigaos_get_current_task();
+    const char *tname = amigaos_get_task_name(cur_task);
     dftd_startup_log("faulthandler: Break/Interrupt signal %d received in task '%s' (0x%p, main=0x%p)...",
                      sig, tname, cur_task, s_main_task);
     if (s_main_task && cur_task != s_main_task) {
         dftd_startup_log("faulthandler: Break/Interrupt in child thread '%s', suspending without exit()...", tname);
-        for (;;) {
-            IExec->Wait(0);
-        }
+        amigaos_wait_forever();
         return;
     }
     amiga_safe_audio_stop();
@@ -154,18 +142,15 @@ static void amiga_fault_handler(int sig) {
     else if (sig == SIGILL) name = "SIGILL (Illegal Instruction)";
     else if (sig == SIGABRT) name = "SIGABRT (Abort)";
 
-    struct Task *cur_task = IExec ? IExec->FindTask(NULL) : NULL;
-    const char *tname = (cur_task && cur_task->tc_Node.ln_Name) ? cur_task->tc_Node.ln_Name : "unknown";
+    void *cur_task = amigaos_get_current_task();
+    const char *tname = amigaos_get_task_name(cur_task);
     dftd_startup_log("FATAL: Caught signal %d [%s] in task '%s' (0x%p, main=0x%p)!",
                      sig, name, tname, cur_task, s_main_task);
     print_stack_trace();
     signal(sig, SIG_DFL);
     if (s_main_task && cur_task != s_main_task) {
         dftd_startup_log("FATAL: Signal caught in child thread '%s'! Signaling main task to terminate...", tname);
-        IExec->Signal(s_main_task, SIGBREAKF_CTRL_C);
-        for (;;) {
-            IExec->Wait(0);
-        }
+        amigaos_signal_task_and_wait(s_main_task);
     } else {
         amiga_safe_audio_stop();
         exit(128 + sig);
@@ -173,23 +158,17 @@ static void amiga_fault_handler(int sig) {
 }
 
 void install_segfault_handler() {
-    s_main_task = IExec ? IExec->FindTask(NULL) : NULL;
-    uintptr_t ref_addr = (uintptr_t)(void*)&install_segfault_handler;
-    intptr_t load_bias = ref_addr - s_elf_ref_addr;
+    s_main_task = amigaos_get_current_task();
 #if !defined(DFTD_NO_DEBUG_LOG)
     if (dftd_is_debug_log_enabled()) {
+        uintptr_t ref_addr = (uintptr_t)(void*)&install_segfault_handler;
+        intptr_t load_bias = ref_addr - s_elf_ref_addr;
+        const char *mname = amigaos_get_task_name(s_main_task);
         dftd_startup_log("faulthandler: installed, main task is 0x%p ('%s'), &install_segfault_handler=0x%p (bias=0x%08lx)",
-                         s_main_task, (s_main_task && s_main_task->tc_Node.ln_Name) ? s_main_task->tc_Node.ln_Name : "unknown",
+                         s_main_task, mname,
                          (void*)&install_segfault_handler, (unsigned long)load_bias);
 
-        if (SysBase) {
-            struct ExecBase *eb = (struct ExecBase *)SysBase;
-            IExec->Forbid();
-            for (struct Node *node = eb->LibList.lh_Head; node->ln_Succ != NULL; node = node->ln_Succ) {
-                dftd_startup_log("faulthandler: loaded lib '%s' at %p", node->ln_Name ? node->ln_Name : "unnamed", (void*)node);
-            }
-            IExec->Permit();
-        }
+        amigaos_log_loaded_libs(dftd_startup_log);
     }
 #endif
 

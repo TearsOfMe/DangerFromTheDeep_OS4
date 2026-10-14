@@ -31,53 +31,14 @@ cp DangerFromTheDeep_Debug /opt/code/dist/debug_symbols/DangerFromTheDeep_Debug.
 ppc-amigaos-strip -R.comment -R.note DangerFromTheDeep_Debug
 
 # 2. Build DangerFromTheDeep (release, all debug logging disabled)
-/opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
-  -Winvalid-pch -include /opt/code/build_os4/src/CMakeFiles/dangerdeep.dir/cmake_pch.hxx \
-  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
-  -I/opt/code/third_party/build_fftw/include \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
-  -I/opt/code/cmake/gl4es_include \
-  -c /opt/code/src/subsim.cpp \
-  -o CMakeFiles/dangerdeep.dir/subsim_release.cpp.o
+CXX_FLAGS="-DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 -D_GLIBCXX_USE_STD_SPEC_FUNCS=0 -D__STDCPP_WANT_MATH_SPEC_FUNCS__=0"
+INCLUDES="-I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml -I/opt/code/third_party/build_fftw/include -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES -I/opt/code/cmake/gl4es_include"
 
-/opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
-  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
-  -I/opt/code/third_party/build_fftw/include \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
-  -I/opt/code/cmake/gl4es_include \
-  -c /opt/code/src/altivec_detect.cpp \
-  -o CMakeFiles/dangerdeep.dir/altivec_detect_release.cpp.o
-
-/opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
-  -Winvalid-pch -include /opt/code/build_os4/src/CMakeFiles/dangerdeep.dir/cmake_pch.hxx \
-  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
-  -I/opt/code/third_party/build_fftw/include \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
-  -I/opt/code/cmake/gl4es_include \
-  -c /opt/code/src/sub_torpedo_display.cpp \
-  -o CMakeFiles/dangerdeep.dir/sub_torpedo_display_release.cpp.o
-
-/opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
-  -Winvalid-pch -include /opt/code/build_os4/src/CMakeFiles/dangerdeep.dir/cmake_pch.hxx \
-  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
-  -I/opt/code/third_party/build_fftw/include \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
-  -I/opt/code/cmake/gl4es_include \
-  -c /opt/code/src/global_data.cpp \
-  -o CMakeFiles/dangerdeep.dir/global_data_release.cpp.o
-
-/opt/ppc-amigaos/bin/ppc-amigaos-g++ -DTIXML_USE_STL -athread=native -Wall -std=gnu++20 -O3 -DDFTD_NO_DEBUG_LOG=1 \
-  -I/opt/code/src -I/opt/code/build_os4 -I/opt/code/build_os4/src -I/opt/code/src/tinyxml \
-  -I/opt/code/third_party/build_fftw/include \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/newlib/include/SDL2 \
-  -I/opt/ppc-amigaos/ppc-amigaos/SDK/local/common/include/GL4ES \
-  -I/opt/code/cmake/gl4es_include \
-  -c /opt/code/src/faulthandler.cpp \
-  -o CMakeFiles/dangerdeep.dir/faulthandler_release.cpp.o
+/opt/ppc-amigaos/bin/ppc-amigaos-g++ $CXX_FLAGS $INCLUDES -c /opt/code/src/subsim.cpp -o CMakeFiles/dangerdeep.dir/subsim_release.cpp.o
+/opt/ppc-amigaos/bin/ppc-amigaos-g++ $CXX_FLAGS $INCLUDES -c /opt/code/src/altivec_detect.cpp -o CMakeFiles/dangerdeep.dir/altivec_detect_release.cpp.o
+/opt/ppc-amigaos/bin/ppc-amigaos-g++ $CXX_FLAGS $INCLUDES -c /opt/code/src/sub_torpedo_display.cpp -o CMakeFiles/dangerdeep.dir/sub_torpedo_display_release.cpp.o
+/opt/ppc-amigaos/bin/ppc-amigaos-g++ $CXX_FLAGS $INCLUDES -c /opt/code/src/global_data.cpp -o CMakeFiles/dangerdeep.dir/global_data_release.cpp.o
+/opt/ppc-amigaos/bin/ppc-amigaos-g++ $CXX_FLAGS $INCLUDES -c /opt/code/src/faulthandler.cpp -o CMakeFiles/dangerdeep.dir/faulthandler_release.cpp.o
 
 sed -e "s/CMakeFiles\/dangerdeep\.dir\/subsim\.cpp\.o/CMakeFiles\/dangerdeep\.dir\/subsim_release\.cpp\.o/g" \
     -e "s/CMakeFiles\/dangerdeep\.dir\/altivec_detect\.cpp\.o/CMakeFiles\/dangerdeep\.dir\/altivec_detect_release\.cpp\.o/g" \
@@ -99,7 +60,7 @@ echo "Successfully built and deployed DangerFromTheDeep and DangerFromTheDeep_De
 
 if ! command -v ppc-amigaos-g++ &> /dev/null; then
     echo "ppc-amigaos-g++ not found on host. Running inside Docker..."
-    docker run --rm -v "${ROOT_DIR}:/opt/code" walkero/amigagccondocker:os4-gcc11-3.3.0 bash -c "$BUILD_CMD"
+    docker run --rm -v "${ROOT_DIR}:/opt/code" walkero/amigagccondocker:os4-gcc15-3.5.0-dwarf2 bash -c "$BUILD_CMD"
 else
     echo "Running with local cross-compiler..."
     bash -c "$BUILD_CMD"

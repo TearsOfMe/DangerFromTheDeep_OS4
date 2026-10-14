@@ -4,6 +4,7 @@
 
 #include "display_backend.h"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <list>
 #include <stdexcept>
 
