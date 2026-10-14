@@ -518,12 +518,13 @@ void map_display::display(class game &gm) const {
     sys().prepare_2d_drawing();
 
     float delta = MAPGRIDSIZE * mapzoom;
-    float sx = myfmod(512, delta) - myfmod(offset.x, MAPGRIDSIZE) * mapzoom;
-    float sy = 768.0 - (myfmod(384.0f, delta) - myfmod(offset.y, MAPGRIDSIZE) * mapzoom);
-    int lx = int(1024 / delta) + 2, ly = int(768 / delta) + 2;
 
     // draw grid
-    if (mapzoom >= 0.01) {
+    if (mapzoom >= 0.01 && delta > 0.1f) {
+        float sx = myfmod(512, delta) - myfmod(offset.x, MAPGRIDSIZE) * mapzoom;
+        float sy = 768.0 - (myfmod(384.0f, delta) - myfmod(offset.y, MAPGRIDSIZE) * mapzoom);
+        int lx = std::min(int(1024 / delta) + 2, 200);
+        int ly = std::min(int(768 / delta) + 2, 200);
         colorf col(0.5, 0.5, 1);
         for (int i = 0; i < lx; ++i) {
             primitives::line(vector2f(sx, 0), vector2f(sx, 768), col).render();
@@ -1028,6 +1029,7 @@ void map_display::process_input(class game &gm, const game_event &event) {
             cvroute[cvridx] += motion * (1.0 / mapzoom);
         }
 #endif
+        break;
     case event_type::KEY_DOWN:
         if (ui.get_config().getkey(KEY_ZOOM_MAP).equal(event.keysym)) {
             if (mapzoom < 1)

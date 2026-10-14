@@ -188,8 +188,12 @@ primitive<4> primitives::diamond(const vector2f &xy,
 primitives primitives::circle(const vector2f &xy,
                               float radius,
                               const colorf &col) {
-    // use 2 pixels per line each
-    primitives result(GL_LINE_LOOP, unsigned(floor(M_PI * radius)), col);
+    if (radius <= 0.0f)
+        return primitives(GL_LINE_LOOP, 0, col);
+    unsigned segments = unsigned(floor(M_PI * radius));
+    if (segments < 16) segments = 16;
+    if (segments > 360) segments = 360;
+    primitives result(GL_LINE_LOOP, segments, col);
     for (unsigned i = 0; i < result.vertices.size(); ++i) {
         float a = i * 2 * M_PI / result.vertices.size();
         result.vertices[i].x = xy.x + sin(a) * radius;

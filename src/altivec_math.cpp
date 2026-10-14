@@ -38,7 +38,7 @@ static inline __vector float altivec_rsqrt_vec(__vector float v) {
 
     __vector float est_sq = vec_madd(est, est, zero);
     __vector float v_est_sq = vec_madd(v, est_sq, zero);
-    __vector float nr = vec_nmsub(half, v_est_sq, one_point_five);
+    __vector float nr = vec_nmsub(half, one_point_five, v_est_sq);
     return vec_madd(est, nr, zero);
 }
 

@@ -150,10 +150,8 @@ void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, 
             // find area
             unsigned current = i;
             do {
-                //				cout << "segpos: x " << x << " y " << y << "\n";
-                //				cout << "current is : " << current << "\n";
-                //	segcls[current].print();
-                ASSERT(!cl_handled[current], "illegal .next values!", 0);
+                if (current >= nrcl || cl_handled[current])
+                    break;
 
                 const segcl &cl = segcls[current];
                 ce.points.reserve(ce.points.size() + cl.points.size());
@@ -163,20 +161,16 @@ void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, 
                     ce.points.push_back(vector2(cl.points[j].x, cl.points[j].y) * sc);
                 }
                 int next = cl.next;
-                //				cout << "startpos " << cl.beginpos << " endpos: " << cl.endpos << " next " << next << " next startpos: " << segcls[next].beginpos << "\n";
-                //				cout << "current="<<current<<" next="<<next<<"\n";
                 cl_handled[current] = true;
-                ASSERT(next != -1, "next unset?");
-                // if(current==next)break;
+                if (next < 0 || unsigned(next) >= nrcl)
+                    break;
                 //  insert corners if needed
                 if (!cl.cyclic) {
                     int b0 = cl.endpos, b1 = segcls[next].beginpos;
-                    //					cout << "fill: ed " << b0 << " bg " << b1 << "\n";
                     if (b1 < b0)
                         b1 += 4 * SEGSCALE;
                     b0 = (b0 + SEGSCALE - 1) / SEGSCALE;
                     b1 = b1 / SEGSCALE;
-                    //					cout << "fill2: ed " << b0 << " bg " << b1 << "\n";
                     for (int j = b0; j <= b1; ++j) {
                         int k = j % 4;
                         // push back destination point of edge (0-3: br,tr,tl,bl)
@@ -190,13 +184,9 @@ void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, 
                             ce.push_back_point(vector2(0, cm.segw_real));
                     }
                 }
-                //				printf("cyclic? %u next %i\n",cl.cyclic,next);
                 current = unsigned(next);
             } while (current != i);
 
-            //			cout << "compute triang for segment " << this << "\n";
-
-            //			cout << "segment no: " << (this - &cm.coastsegments[0]) << "\n";
             unsigned dbl = 0;
             for (unsigned i = 0; i + 1 < ce.points.size(); ++i) {
                 unsigned j = i + 1;
@@ -206,16 +196,15 @@ void coastsegment::generate_point_cache(const class coastmap &cm, int x, int y, 
                     ++dbl;
                 }
             }
-            // if (dbl > 0)
-            //     cout << "erased " << dbl << " double points!, seg " << x << "," << y << "\n";
             // remove last point that coincides with first point for islands.
-            if (ce.points.back().square_distance(ce.points.front()) < 0.1f) {
+            if (ce.points.size() >= 2 && ce.points.back().square_distance(ce.points.front()) < 0.1f) {
                 ce.points.pop_back();
             }
 
-            //			printf("triangulating seg %i %i\n",x,y);
-            ce.indices = triangulate::compute(ce.points);
-            pointcache.push_back(ce);
+            if (ce.points.size() >= 3) {
+                ce.indices = triangulate::compute(ce.points);
+                pointcache.push_back(ce);
+            }
         }
 
         // Precompute mesh vertices and texture coordinates for fast batch rendering
@@ -1133,7 +1122,11 @@ void coastmap::draw_as_map(const vector2 &droff, double mapzoom, int detail) con
         };
 
         for (int yy = y; yy < y + h; ++yy) {
+            if (yy < 0 || yy >= int(segsy))
+                continue;
             for (int xx = x; xx < x + w; ++xx) {
+                if (xx < 0 || xx >= int(segsx))
+                    continue;
                 const coastsegment &seg = coastsegments[yy * segsx + xx];
                 if (seg.type == 0)
                     continue;

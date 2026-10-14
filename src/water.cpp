@@ -777,31 +777,20 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
                 unsigned lineidx = (yy & mod) * mult;
                 unsigned xx = xoff;
                 float coordxoff = offset.x;
-                unsigned start_col = (xx & mod);
-                if (cpu_has_altivec() && (start_col + N <= mod)) {
-                    altivec_generate_geoclipmap_row(
-                        &vertex_data[vertex_data_ptr],
-                        (const float *)&mml.wavedata[lineidx + start_col],
-                        (const float *)&mml.normals[lineidx + start_col],
-                        &mml.amount_of_foam[lineidx + start_col],
-                        coordxoff, coordyoff, float(viewpos.z), coordxadd, N + 1);
-                    vertex_data_ptr += (N + 1) * nr_vert_attr;
-                } else {
-                    for (unsigned x = 0; x < N + 1; ++x) {
-                        unsigned colidx = (xx & mod);
-                        const vector3f &p0 = mml.wavedata[lineidx + colidx];
-                        const vector3f &n0 = mml.normals[lineidx + colidx];
-                        vertex_data[vertex_data_ptr + 0] = p0.x + coordxoff;
-                        vertex_data[vertex_data_ptr + 1] = p0.y + coordyoff;
-                        vertex_data[vertex_data_ptr + 2] = p0.z - viewpos.z;
-                        vertex_data[vertex_data_ptr + 3] = n0.x;
-                        vertex_data[vertex_data_ptr + 4] = n0.y;
-                        vertex_data[vertex_data_ptr + 5] = n0.z;
-                        vertex_data[vertex_data_ptr + 6] = mml.amount_of_foam[lineidx + colidx];
-                        vertex_data_ptr += nr_vert_attr;
-                        ++xx;
-                        coordxoff += coordxadd;
-                    }
+                for (unsigned x = 0; x < N + 1; ++x) {
+                    unsigned colidx = (xx & mod);
+                    const vector3f &p0 = mml.wavedata[lineidx + colidx];
+                    const vector3f &n0 = mml.normals[lineidx + colidx];
+                    vertex_data[vertex_data_ptr + 0] = p0.x + coordxoff;
+                    vertex_data[vertex_data_ptr + 1] = p0.y + coordyoff;
+                    vertex_data[vertex_data_ptr + 2] = p0.z - viewpos.z;
+                    vertex_data[vertex_data_ptr + 3] = n0.x;
+                    vertex_data[vertex_data_ptr + 4] = n0.y;
+                    vertex_data[vertex_data_ptr + 5] = n0.z;
+                    vertex_data[vertex_data_ptr + 6] = mml.amount_of_foam[lineidx + colidx];
+                    vertex_data_ptr += nr_vert_attr;
+                    ++xx;
+                    coordxoff += coordxadd;
                 }
                 ++yy;
                 coordyoff += coordyadd;
@@ -1398,39 +1387,32 @@ void water::wavetile_phase::mipmap_level::compute_normals(bool generate_tex) {
 
     // Now compute vertex normals from face normals.
     normals.resize(1 << (2 * resolution_shift));
-    if (cpu_has_altivec()) {
-        altivec_compute_vertex_normals(
-            (float *)normals.data(),
-            (const float *)facenormals.data(),
-            resolution);
-    } else {
-        for (unsigned y = 0; y < resolution; ++y) {
-            unsigned y1 = y * resolution;
-            unsigned y2 = ((y + resolution - 1) & (resolution - 1)) * resolution;
-            for (unsigned x = 0; x < resolution; ++x) {
-                unsigned x1 = (x + resolution - 1) & (resolution - 1);
-                const vector3f &f0 = facenormals[2 * (y1 + x)];
-                const vector3f &f1 = facenormals[2 * (y1 + x1) + 1];
-                const vector3f &f2 = facenormals[2 * (y2 + x1)];
-                const vector3f &f3 = facenormals[2 * (y2 + x1) + 1];
-                const vector3f &f4 = facenormals[2 * (y2 + x)];
-                const vector3f &f5 = facenormals[2 * (y1 + x) + 1];
-                float nx = f0.x + f1.x + f2.x + f3.x + f4.x + f5.x;
-                float ny = f0.y + f1.y + f2.y + f3.y + f4.y + f5.y;
-                float nz = f0.z + f1.z + f2.z + f3.z + f4.z + f5.z;
-                float lsq = nx * nx + ny * ny + nz * nz;
+    for (unsigned y = 0; y < resolution; ++y) {
+        unsigned y1 = y * resolution;
+        unsigned y2 = ((y + resolution - 1) & (resolution - 1)) * resolution;
+        for (unsigned x = 0; x < resolution; ++x) {
+            unsigned x1 = (x + resolution - 1) & (resolution - 1);
+            const vector3f &f0 = facenormals[2 * (y1 + x)];
+            const vector3f &f1 = facenormals[2 * (y1 + x1) + 1];
+            const vector3f &f2 = facenormals[2 * (y2 + x1)];
+            const vector3f &f3 = facenormals[2 * (y2 + x1) + 1];
+            const vector3f &f4 = facenormals[2 * (y2 + x)];
+            const vector3f &f5 = facenormals[2 * (y1 + x) + 1];
+            float nx = f0.x + f1.x + f2.x + f3.x + f4.x + f5.x;
+            float ny = f0.y + f1.y + f2.y + f3.y + f4.y + f5.y;
+            float nz = f0.z + f1.z + f2.z + f3.z + f4.z + f5.z;
+            float lsq = nx * nx + ny * ny + nz * nz;
 #if defined(__powerpc__) || defined(__ppc__)
-                float inv_len = 0.0f;
-                if (lsq > 0.0f) {
-                    float est;
-                    asm("frsqrte %0, %1" : "=f"(est) : "f"(lsq));
-                    inv_len = est * (1.5f - 0.5f * lsq * est * est);
-                }
-#else
-                float inv_len = (lsq > 0.0f) ? (1.0f / sqrtf(lsq)) : 0.0f;
-#endif
-                normals[y1 + x] = vector3f(nx * inv_len, ny * inv_len, nz * inv_len);
+            float inv_len = 0.0f;
+            if (lsq > 0.0f) {
+                float est;
+                asm("frsqrte %0, %1" : "=f"(est) : "f"(lsq));
+                inv_len = est * (1.5f - 0.5f * lsq * est * est);
             }
+#else
+            float inv_len = (lsq > 0.0f) ? (1.0f / sqrtf(lsq)) : 0.0f;
+#endif
+            normals[y1 + x] = vector3f(nx * inv_len, ny * inv_len, nz * inv_len);
         }
     }
 
