@@ -40,6 +40,7 @@ class sub_uzo_display : public freeview_display {
     int dx;
 
     bool zoomed; // use 1,5x (false) or 6x (true) zoom
+    int zoom_level; // 0 = 1.5x (50.05 deg), 1 = 3.0x (25.0 deg), 2 = 6.0x (13.31 deg)
 
   public:
     sub_uzo_display(class user_interface &ui_);

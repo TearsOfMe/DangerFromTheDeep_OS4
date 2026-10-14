@@ -1529,18 +1529,21 @@ void menu_opt_video() {
     widget_checkbox *tex_compress = new widget_checkbox(right, y + 130, wd, 35, config.getb("use_compressed_textures"), texts::get(721));
     widget_checkbox *show_fps = new widget_checkbox(right, y + 170, wd, 35, config.getb("show_fps"), is_de ? "FPS-Anzeige einblenden" : "Show FPS counter");
 
-    widget_list *wfx_quality = new widget_list(x + (wd / 2), y + 220, wd / 2, 80);
-    widget_text *wfx_quality_txt = new widget_text(x, y + 220, wd / 2, 20, texts::get(713));
-    widget_list *w_postprocessing = new widget_list(right + (wd / 2), y + 220, wd / 2, 80);
-    widget_text *w_postprocessing_txt = new widget_text(right, y + 220, wd / 2, 20, texts::get(714));
+    unsigned lbl_wd = 230;
+    unsigned lst_wd = wd - lbl_wd;
 
-    widget_list *anisotropic_level = new widget_list(x + (wd / 2), y + 320, wd / 2, 80);
-    widget_text *anisotropic_level_txt = new widget_text(x, y + 320, wd / 2, 20, texts::get(722));
-    widget_list *anti_aliasing_level = new widget_list(right + (wd / 2), y + 320, wd / 2, 80);
-    widget_text *anti_aliasing_level_txt = new widget_text(right, y + 320, wd / 2, 20, texts::get(723));
+    widget_list *wfx_quality = new widget_list(x + lbl_wd, y + 220, lst_wd, 80);
+    widget_text *wfx_quality_txt = new widget_text(x, y + 220, lbl_wd, 20, texts::get(713));
+    widget_list *w_postprocessing = new widget_list(right + lbl_wd, y + 220, lst_wd, 80);
+    widget_text *w_postprocessing_txt = new widget_text(right, y + 220, lbl_wd, 20, texts::get(714));
 
-    widget_list *w_max_fps = new widget_list(right + (wd / 2), y + 420, wd / 2, 80);
-    widget_text *w_max_fps_txt = new widget_text(right, y + 420, wd / 2, 20, is_de ? "Max. FPS (Limiter)" : "Max FPS Limit");
+    widget_list *anisotropic_level = new widget_list(x + lbl_wd, y + 320, lst_wd, 80);
+    widget_text *anisotropic_level_txt = new widget_text(x, y + 320, lbl_wd, 20, texts::get(722));
+    widget_list *anti_aliasing_level = new widget_list(right + lbl_wd, y + 320, lst_wd, 80);
+    widget_text *anti_aliasing_level_txt = new widget_text(right, y + 320, lbl_wd, 20, texts::get(723));
+
+    widget_list *w_max_fps = new widget_list(right + lbl_wd, y + 420, lst_wd, 80);
+    widget_text *w_max_fps_txt = new widget_text(right, y + 420, lbl_wd, 20, is_de ? "Max. FPS (Limiter)" : "Max FPS Limit");
 
     widget_button *wcb = new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 0, x, y + 420, wd, 40, texts::get(20));
 
@@ -2421,7 +2424,7 @@ int mymain(list<string> &args) {
     music::instance().play();
 
     widget::set_theme(std::make_unique<widget::theme>("widgetelements_menu.png", "widgeticons_menu.png",
-                                                      font_vtremington14,
+                                                      font_vtremington12,
                                                       color(182, 146, 137),
                                                       color(240, 217, 127) /*color(222, 208, 195)*/,
                                                       color(92, 72, 68)));

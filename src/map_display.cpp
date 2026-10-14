@@ -753,21 +753,15 @@ void map_display::display(class game &gm) const {
     sys().unprepare_2d_drawing();
 }
 
-void map_display::zoom_in(int center_x, int center_y) {
+void map_display::zoom_in(int, int) {
     if (mapzoom < 1.0f) {
-        float old_zoom = mapzoom;
         mapzoom = std::min(1.0f, mapzoom * 1.5f);
-        vector2 m_rel(center_x - 512, 384 - center_y);
-        mapoffset += m_rel * (1.0f / old_zoom - 1.0f / mapzoom);
     }
 }
 
-void map_display::zoom_out(int center_x, int center_y) {
+void map_display::zoom_out(int, int) {
     if (mapzoom > 1.0f / 16384.0f) {
-        float old_zoom = mapzoom;
         mapzoom = std::max(1.0f / 16384.0f, mapzoom / 1.5f);
-        vector2 m_rel(center_x - 512, 384 - center_y);
-        mapoffset += m_rel * (1.0f / old_zoom - 1.0f / mapzoom);
     }
 }
 

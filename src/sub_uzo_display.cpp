@@ -40,8 +40,9 @@ freeview_display::projection_data sub_uzo_display::get_projection_data(class gam
     pd.y = sys().get_res_area_2d_y();
     pd.w = sys().get_res_area_2d_w();
     pd.h = sys().get_res_area_2d_h();
-    // with normal fov of 70 degrees, this is 1.5 / 6.0 magnification
-    pd.fov_x = zoomed ? 13.31 : 50.05; // fixme: historic values?
+    // with normal fov of 70 degrees, this is 1.5x / 3.0x / 6.0x magnification
+    static const double uzo_fov_steps[3] = {50.05, 25.0, 13.31};
+    pd.fov_x = uzo_fov_steps[std::clamp(zoom_level, 0, 2)];
     pd.near_z = 1.0;
     pd.far_z = gm.get_max_view_distance();
     pd.fullscreen = true;
@@ -110,7 +111,7 @@ void sub_uzo_display::post_display(game &gm) const {
                            true);
 }
 
-sub_uzo_display::sub_uzo_display(user_interface &ui_) : freeview_display(ui_), zoomed(false) {
+sub_uzo_display::sub_uzo_display(user_interface &ui_) : freeview_display(ui_), zoomed(false), zoom_level(0) {
     submarine *sub = dynamic_cast<submarine *>(ui_.get_game().get_player());
     add_pos = sub->get_uzo_position();
     aboard = true;
@@ -125,7 +126,8 @@ void sub_uzo_display::process_input(class game &gm, const game_event &event) {
     switch (event.type) {
     case event_type::KEY_DOWN:
         if (ui.get_config().getkey(KEY_TOGGLE_ZOOM_OF_VIEW).equal(event.keysym)) {
-            zoomed = !zoomed;
+            zoom_level = (zoom_level == 0) ? 2 : 0;
+            zoomed = (zoom_level > 0);
         } else {
             switch (event.keysym.sym) {
                 // filter away keys NP_1...NP_9 to avoid moving viewer like in freeview mode
@@ -148,20 +150,25 @@ void sub_uzo_display::process_input(class game &gm, const game_event &event) {
         break;
     case event_type::MOUSE_WHEEL:
         if (event.wheel_y > 0) {
-            zoomed = true;
+            zoom_level = std::min(2, zoom_level + 1);
+            zoomed = (zoom_level > 0);
         } else if (event.wheel_y < 0) {
-            zoomed = false;
+            zoom_level = std::max(0, zoom_level - 1);
+            zoomed = (zoom_level > 0);
         }
         return;
     case event_type::MOUSE_BUTTON_DOWN:
         if (event.button_button == MOUSE_BUTTON_WHEELUP) {
-            zoomed = true;
+            zoom_level = std::min(2, zoom_level + 1);
+            zoomed = (zoom_level > 0);
             return;
         } else if (event.button_button == MOUSE_BUTTON_WHEELDOWN) {
-            zoomed = false;
+            zoom_level = std::max(0, zoom_level - 1);
+            zoomed = (zoom_level > 0);
             return;
         } else if (event.button_button == MOUSE_BUTTON_MIDDLE) {
-            zoomed = !zoomed;
+            zoom_level = (zoom_level == 0) ? 2 : 0;
+            zoomed = (zoom_level > 0);
             return;
         }
         break;

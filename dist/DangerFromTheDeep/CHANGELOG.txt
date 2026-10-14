@@ -1,0 +1,295 @@
+================================================================================
+                    DANGER FROM THE DEEP (AmigaOS 4.1)
+                            CHANGELOG / HISTORIE
+================================================================================
+
+[English version below - Deutsche Version weiter unten]
+
+================================================================================
+[EN] ENGLISH
+================================================================================
+
+Version 0.3.900-mesa-r10 (2026-10-14)
+-------------------------------------
+* MAP VIEW ZOOM CRASH FIX:
+  - Fixed crash (Grim Reaper / freeze) when zooming in or dragging the tactical map:
+    1) Fixed missing 'break' in map_display event handling: Mouse motion events
+       previously fell through into key event dispatch with uninitialized data,
+       causing erratic zoom and mode toggling.
+    2) Fixed vertex array explosion in primitives::circle: Clamped circle rendering
+       segments to [16, 360] and guarded against non-positive radii. Prevents
+       hundreds of thousands of vertices from exhausting memory during map zoom.
+    3) Fixed invalid vector indexing in coastsegment::generate_point_cache: Added
+       strict boundary and cycle checks for coastline polygon extraction, and
+       guarded triangulation to require valid point vectors.
+    4) Added coordinate clipping in coastmap::draw_as_map to prevent out-of-bounds
+       segment array access.
+
+* WATER GRAPHICS CORRUPTION FIX (AltiVec / AmigaOne X1000):
+  - Fixed corrupt water surface with dark horizontal rectangular blocks/stripes on
+    AltiVec-equipped machines (P.A. Semi PA6T / AmigaOne X1000):
+    1) Corrected AltiVec inverse square root operand order: PowerPC AltiVec vnmsubfp
+       computes vB - (vA * vC). Fixed operand order in altivec_rsqrt_vec so the
+       Newton-Raphson refinement properly computes (1.5 - 0.5 * v * est^2) instead
+       of corrupting normal lengths.
+    2) Switched water normal computation to the robust PowerPC hardware frsqrte
+       scalar pipeline, avoiding 4-float over-reads on packed 3-float vectors and
+       ensuring 100% identical, pristine normal maps on both X1000 and X5000.
+    3) Unified geoclipmap vertex row generation across all tile lines.
+    4) Strictly clipped terrain at or below sea level (<= 0.0) in geoclipmap.fshader
+       when above water, preventing sea-level terrain tiles from rendering on top
+       of the ocean surface.
+
+* TOOLCHAIN & BUILD:
+  - Recompiled Release and Debug binaries using GCC 15 (adtools 15.3.0 DWARF-2)
+    in cross-compilation Docker container.
+
+
+Version 0.3.900-mesa-r6 (2026-10-13)
+------------------------------------
+* AMIGA VERSION STRING:
+  - Added official AmigaOS version tag ($VER: DangerFromTheDeep 0.5.1 (13.10.2026)
+    AmigaOS 4 Port by TearsOfMe). Visible via Workbench 'Version' command.
+
+* FPS COUNTER (IN-GAME & OPTIONS):
+  - Added live in-game FPS counter option: Can be enabled/disabled in the Video
+    Options menu ("FPS-Anzeige einblenden" / "Show FPS counter").
+  - Added convenient in-game toggle shortcut [Ctrl + F] to switch the FPS display
+    on or off anytime during a mission with instant onscreen feedback.
+
+* STABILITY & CRASH FIX ON WINDOW CLOSE:
+  - Fixed crash (Grim Reaper) when closing the game via window close gadget while
+    on the submarine bridge:
+    1) Audio cleanup: Ensured Mix_HaltChannel(-1) halts active sound channels
+       (diesel engine sfx) before freeing chunk memory in the music thread.
+    2) Display cleanup: Properly invoke display leave() during user interface
+       shutdown to reset bridge-specific textures (glasses_tex) and view states.
+    3) Texture cache: Replaced raw pointer texture cache ownership in freeview
+       displays with safe std::shared_ptr management (insert_shared), preventing
+       dangling pointer double-free across bridge, periscope, and UZO displays.
+    4) Event loop: Immediately break out of simulation and render loop when the
+       window close gadget is clicked instead of processing another render pass.
+
+* AMIGAONE X1000 & ALTIVEC CONFIRMATION:
+  - Confirmed and verified AltiVec SIMD acceleration is 100% active on the
+    AmigaOne X1000 (PA6T processor). ExecSG GCIT_VectorUnit detection is fully
+    intact, with cached inline check for zero-overhead matrix transformations.
+
+
+Version 0.3.900-mesa-r5 (2026-10-13)
+------------------------------------
+* PERFORMANCE & 100% CPU LOAD FIX:
+  - Fixed 100% CPU load runaway loop: The background music and sound effect
+    thread ("music___") used GCC 11's std::condition_variable_any with
+    -athread=native. When called from tasks created by SDL_CreateThread,
+    GCC's __gthread_cond_wait returned error 22 (EINVAL) immediately without
+    blocking, causing an infinite tight spinloop at billions of cycles/sec.
+    Replaced with native SDL_mutex and SDL_cond primitives (SDL_CondWait,
+    SDL_CondBroadcast), allowing the thread to properly sleep at 0% CPU.
+  - Added cooperative CPU timeslice yielding (display_delay(1)) in the main
+    swap_buffers() loop for AmigaOS 4, preventing single-core starvation on
+    ExecSG when framerate is at or below 60 FPS.
+  - Added automatic CPU sleep (thread::sleep(15)) while the simulation is
+    paused [P], eliminating unnecessary high-rate rendering while paused.
+
+* AMIGAONE X5000 (e5500) & NON-ALTIVEC HARDWARE OPTIMIZATIONS:
+  - Eliminated PLT function call overhead in matrix multiplications by caching
+    and inlining the cpu_has_altivec() check across all 3D transforms.
+  - Drastically accelerated the scalar vertex normal computation in water
+    simulation (water::compute_normals): Replaced slow newlib sqrtf() function
+    calls (up to 65,536 calls/frame) with PowerPC hardware frsqrte (Floating
+    Reciprocal Square Root Estimate) and inline Newton-Raphson refinement.
+    Normal calculations now run in ~5 hardware clock cycles instead of ~150-200
+    cycles (up to 30x faster scalar calculation on AmigaOne X5000 and Sam460).
+
+* RADEONHD / RADEONRX / WARP3D NOVA & SHADER OPTIMIZATIONS:
+  - Upgraded default depth buffer format (SDL_GL_DEPTH_SIZE) from 16 to 24 bits.
+    RadeonHD (Southern Islands) and RadeonRX (Polaris) natively utilize D24S8,
+    eliminating driver format conversion overhead and preventing ocean Z-fighting.
+  - Optimized GLSL fragment shaders (geoclipmap.fshader and under_water.fshader):
+    Replaced per-pixel square root calculations (length(fog_color) < 0.01) with
+    root-free dot product comparisons (dot(fog_color, fog_color) < 0.0001).
+
+
+Version 0.3.900-mesa-r4 (2026-10-12)
+------------------------------------
+* WORKBENCH & SHELL CONSOLE FIX:
+  - Completely silenced and eliminated the AmigaOS Shell/console window popup
+    when launching from Workbench (__stdiowin = "NIL:" and freopen("NIL:")).
+* VISUALS & GUI:
+  - Upgraded all program and drawer icons to modern 64x64 RGBA Dual-PNG icons.
+  - Added standard MultiView project icons (.info) for all documentation files.
+  - Enhanced options sliders: Added 3D metallic brass knob, colored track fill,
+    tick marks, and live numerical value feedback.
+  - Added in-game language selection (German / English) to the Options menu.
+* STABILITY:
+  - Fixed Grim Reaper crash on game quit by cleanly stopping AHI/SDL audio
+    before SDL_Quit().
+
+
+Version 0.3.900-mesa-r3 (2026-10-11)
+------------------------------------
+* STABILITY & MISSIONS:
+  - Fixed crash when loading historical missions (added fallback ship model
+    alias mapping for missing vessels).
+* USER FEEDBACK:
+  - Added graphical loading progress bar with percentage, metallic bezel, and
+    localized status text during game startup and mission initialization.
+
+
+Version 0.3.900-mesa-r1 & r2 (2026-10-09)
+-----------------------------------------
+* INITIAL AMIGAOS 4.1 MESA 3D PORT:
+  - Full native PowerPC AmigaOS 4.1 port with Mesa 3D and Warp3D Nova.
+  - AltiVec / VMX SIMD hardware acceleration for P.A. Semi PA6T (AmigaOne X1000).
+  - Runtime CPU vector capability detection.
+  - Embedded stack cookie of 4 MB ($STACK: 4194304).
+  - High-performance Release build and diagnostic Debug build with logging.
+
+
+================================================================================
+[DE] DEUTSCH
+===============================================================================
+
+Version 0.3.900-mesa-r10 (14.10.2026)
+--------------------------------------
+* ABSTURZBEHEBUNG BEIM KARTEN-ZOOM (MAP VIEW):
+  - Absturz (Grim Reaper / Einfrieren) beim Hereinzoomen oder Verschieben der
+    taktischen Karte behoben:
+    1) Fehlendes 'break' im Eingabe-Handler von map_display behoben: Mausbewegungen
+       sind zuvor faelschlicherweise in die Tasteneingabe gerutscht und haben
+       mit uninitialisierten Daten unkontrolliertes Zoomen und Umschalten ausgeloest.
+    2) Vertex-Explosion in primitives::circle behoben: Anzahl der Kreis-Segmente
+       auf [16, 360] begrenzt und Schutz vor negativen/Null-Radien ergaenzt.
+       Verhindert, dass beim Zoomen hunderttausende Vertices den Speicher ueberlasten.
+    3) Segment-Array-Zugriffsfehler in coastsegment::generate_point_cache behoben:
+       Strenge Bereichs- und Schleifenpruefungen fuer Kuestenlinien-Segmente (cl.next)
+       eingefuehrt sowie Dreiecks-Triangulierung gegen leere Punktlisten abgesichert.
+    4) Koordinaten-Begrenzungspruefung in coastmap::draw_as_map ergaenzt, um
+       Zugriffe ausserhalb der Kartensegmente zu verhindern.
+
+* GRAFIKFEHLER BEI DER WASSERDARSTELLUNG BEHOBEN (AltiVec / AmigaOne X1000):
+  - Dunkle horizontale Kacheln/Balken auf der Wasseroberflaeche auf AltiVec-
+    Systemen (P.A. Semi PA6T / AmigaOne X1000) behoben:
+    1) AltiVec vnmsubfp Operanden-Reihenfolge korrigiert: PowerPC AltiVec vnmsubfp
+       berechnet vB - (vA * vC). Operanden in altivec_rsqrt_vec korrigiert, sodass
+       der Newton-Raphson-Schritt (1.5 - 0.5 * v * est^2) fehlerfrei berechnet
+       wird, anstatt Normalenvektoren mit falschen Laengen zu erzeugen.
+    2) Normalen-Berechnung auf bewaehrte, hardware-beschleunigte PowerPC frsqrte
+       FPU-Pipeline umgestellt: Verhindert 4-Float-Ueberleser auf 3-Float-Vektoren
+       und garantiert identische, perfekte Normalen auf X1000 und X5000.
+    3) Geoclipmap Vertex-Zeilenberechnung ueber alle Kachelzeilen vereinheitlicht.
+    4) Terrain auf oder unter Meereshoehe (<= 0.0) im geoclipmap.fshader ueber
+       Wasser strikt ausgeblendet, sodass flache Meeresbodenkacheln nicht mehr
+       ueber die Wasseroberflaeche gezeichnet werden.
+
+* TOOLCHAIN & BUILD:
+  - Release- und Debug-Binaerdateien mit GCC 15 (adtools 15.3.0 DWARF-2) im
+    Docker-Container fuer AmigaOS 4.1 kompiliert und verifiziert.
+
+
+Version 0.3.900-mesa-r6 (13.10.2026)
+------------------------------------
+* AMIGA-VERSIONSSTRING:
+  - Offiziellen AmigaOS-Versionsstring ($VER: DangerFromTheDeep 0.5.1 (13.10.2026)
+    AmigaOS 4 Port by TearsOfMe) eingebettet. Kann ueber den Workbench-Befehl
+    'Version' abgefragt werden.
+
+* FPS-ANZEIGE (IM SPIEL & IN DEN OPTIONEN):
+  - Live FPS-Zaehler hinzugefuegt: Kann in den Video-Optionen ein- und
+    ausgeschaltet werden ("FPS-Anzeige einblenden").
+  - Bequeme Schnelltaste [Strg + F] im Spiel integriert, um die FPS-Anzeige
+    jederzeit waehrend der Feindfahrt mit Bildschirmausgabe umzuschalten.
+
+* STABILITAET & ABSTURZBEHEBUNG BEIM SCHLIESSEN DES FENSTERS:
+  - Absturz (Grim Reaper) beim Beenden ueber den Fenster-Schliessknopf auf der
+    U-Boot-Bruecke vollstaendig behoben:
+    1) Audio-Bereinigung: Mix_HaltChannel(-1) stoppt alle aktiven Tonkanaele
+       (u.a. dauerhaft laufender Dieselmotor-Sound) vor dem Freigeben der
+       Sound-Chunks im Music-Thread.
+    2) Display-Bereinigung: Sauberes Aufrufen von leave() beim Zerstoeren des
+       User-Interface, um brueckenspezifische Texturen (glasses_tex) freizugeben.
+    3) Textur-Cache: Eigentuemerstruktur der Hintergrundtextur im Cache auf
+       sicheres std::shared_ptr (insert_shared) umgestellt; verhindert
+       Dangling-Pointer-Konflikte zwischen Bruecke, Sehrohr und UZO.
+    4) Hauptschleife: Sofortiges Beenden der Simulations- und Render-Schleife
+       bei Klick auf das Schliessgadget, statt noch einen weiteren Frame zu zeichnen.
+
+* AMIGAONE X1000 & ALTIVEC BESTAETIGUNG:
+  - Bestaetigt und verifiziert: AltiVec-SIMD-Beschleunigung ist auf dem
+    AmigaOne X1000 (PA6T) zu 100% aktiv. Die ExecSG GCIT_VectorUnit-Erkennung
+    ist vollstaendig intakt und wurde durch Inline-Caching fuer maximale
+    Matrix-Rechenleistung optimiert.
+
+
+Version 0.3.900-mesa-r5 (13.10.2026)
+------------------------------------
+* PERFORMANCE & BEHEBUNG DER 100% CPU-LAST:
+  - 100% CPU-Dauerlast behoben: Der Audio-Hintergrundthread ("music___") nutzte
+    std::condition_variable_any aus GCC 11 (-athread=native). Bei Threads, die
+    ueber SDL_CreateThread gestartet wurden, lieferte GCCs __gthread_cond_wait
+    sofort den Fehler 22 (EINVAL) zurueck, anstatt zu warten. Dies fuehrte zu
+    einer ungebremsten Endlos-Spinloop mit Millionen Zyklen pro Sekunde.
+    Durch Umstellung auf native SDL_mutex- und SDL_cond-Primitive legt sich der
+    Thread nun sauber bei 0% CPU-Last schlafen.
+  - Kooperatives CPU-Yielding (display_delay(1)) in der Hauptschleife
+    (system::swap_buffers()) fuer AmigaOS 4 hinzugefuegt. Verhindert das
+    Aushungern des Single-Cores unter ExecSG bei Frameraten <= 60 FPS.
+  - Automatisches Schlafen (thread::sleep(15)) bei pausiertem Spiel [P],
+    wodurch unnoetiges Rendern mit voller Bildrate in der Pause entfaellt.
+
+* AMIGAONE X5000 (e5500) & SYSTEME OHNE ALTIVEC:
+  - Funktionsaufruf-Overhead bei Matrixmultiplikationen eliminiert durch inlined
+    gecachten cpu_has_altivec()-Check fuer alle 3D-Transformationen.
+  - Skalaren Pfad der Normalenberechnung fuer das Meerwasser drastisch
+    beschleunigt (water::compute_normals): Langsame newlib-Funktionsaufrufe von
+    sqrtf() (bis zu 65.536 Aufrufe pro Frame) durch PowerPC-Hardwarebefehl
+    frsqrte (Floating Reciprocal Square Root Estimate) mit Newton-Raphson-
+    Verfeinerung ersetzt. Berechnungen laufen nun in ~5 Taktzyklen statt
+    ~150-200 Zyklen (bis zu 30x schneller auf AmigaOne X5000 und Sam460).
+
+* RADEONHD / RADEONRX / WARP3D NOVA & SHADER-OPTIMIERUNGEN:
+  - Standard-Tiefenpuffer (SDL_GL_DEPTH_SIZE) von 16 auf nativen 24-Bit Depth
+    Buffer (D24S8) angehoben. Vermeidet Treiber-Konvertierungs-Overhead auf
+    RadeonHD/RX und eliminiert Z-Fighting auf grossen Ozeandistanzen.
+  - GLSL-Fragment-Shader optimiert (geoclipmap.fshader & under_water.fshader):
+    Quadratwurzel-Berechnungen pro Pixel (length(fog_color) < 0.01) durch
+    wurzelfreies Skalarprodukt (dot(fog_color, fog_color) < 0.0001) ersetzt.
+
+
+Version 0.3.900-mesa-r4 (12.10.2026)
+------------------------------------
+* WORKBENCH & SHELL-FENSTER:
+  - Shell-Fenster-Popup beim Start von der Workbench vollstaendig unterdrueckt
+    (__stdiowin = "NIL:" und freopen("NIL:")).
+* GRAFIK & BENUTZEROBERFLAECHE:
+  - Alle Programm- und Schubladen-Icons auf moderne 64x64 RGBA Dual-PNG-Icons
+    aktualisiert.
+  - Standard-Projekt-Icons (.info fuer MultiView) fuer alle Textdateien ergaenzt.
+  - Grafik-Optionen: Schieberegler optisch ueberarbeitet mit 3D-Messingknauf,
+    Farbverlauf, Skalenmarkierungen und numerischer Live-Wertanzeige.
+  - Sprachauswahl (Deutsch / Englisch) direkt im Optionen-Menue eingebaut.
+* STABILITAET:
+  - Absturz (Grim Reaper) beim regulaeren Beenden behoben (saubere AHI/SDL-
+    Audioabschaltung vor SDL_Quit).
+
+
+Version 0.3.900-mesa-r3 (11.10.2026)
+------------------------------------
+* STABILITAET & MISSIONEN:
+  - Absturz beim Laden historischer Missionen behoben (Alias-Zuordnung fuer
+    fehlende Schiffsmodelle ergaenzt).
+* BEDIENUNG & ANZEIGE:
+  - Grafischer Fortschrittsbalken mit Prozentanzeige und dynamischem Lade-
+    fortschritt beim Spielstart und Missionsladen integriert.
+
+
+Version 0.3.900-mesa-r1 & r2 (09.10.2026)
+-----------------------------------------
+* ERSTER MESA 3D PORT FUER AMIGAOS 4.1:
+  - Nativer PowerPC AmigaOS 4.1 Port mit Mesa 3D und Warp3D Nova.
+  - AltiVec/VMX-Vektorbeschleunigung fuer P.A. Semi PA6T (AmigaOne X1000).
+  - Automatische Erkennung der Vektoreinheit zur Laufzeit.
+  - Eingebetteter 4-MB-Stack-Cookie ($STACK: 4194304).
+  - Release-Version fuer maximale Performance sowie Debug-Version mit Logging.
+================================================================================

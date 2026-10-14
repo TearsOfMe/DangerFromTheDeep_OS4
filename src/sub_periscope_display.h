@@ -40,6 +40,7 @@ class sub_periscope_display : public freeview_display {
     texture::ptr clock_minutes_pointer;
 
     bool zoomed; // use 1,5x (false) or 6x zoom (true)
+    int zoom_level; // 0 = 1.5x (50.05 deg), 1 = 3.0x (25.0 deg), 2 = 6.0x (13.31 deg)
 
     bool use_hqsfx;
     texture::ptr viewtex;

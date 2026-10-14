@@ -44,8 +44,9 @@ freeview_display::projection_data sub_periscope_display::get_projection_data(cla
     pd.y = sys().get_res_area_2d_y() + (768 - 424 - 193) * sys().get_res_area_2d_h() / 768;
     pd.w = 424 * sys().get_res_area_2d_w() / 1024;
     pd.h = 424 * sys().get_res_area_2d_h() / 768;
-    // with normal fov of 70 degrees, this is 1.5 / 6.0 magnification
-    pd.fov_x = zoomed ? 13.31 : 50.05; // fixme: historic values?
+    // with normal fov of 70 degrees, this is 1.5x / 3.0x / 6.0x magnification
+    static const double periscope_fov_steps[3] = {50.05, 25.0, 13.31};
+    pd.fov_x = periscope_fov_steps[std::clamp(zoom_level, 0, 2)];
     pd.near_z = 1.0;
     pd.far_z = gm.get_max_view_distance();
     pd.fullscreen = false;
@@ -148,7 +149,7 @@ void sub_periscope_display::post_display(game &gm) const {
 }
 
 sub_periscope_display::sub_periscope_display(user_interface &ui_)
-    : freeview_display(ui_), zoomed(false), use_hqsfx(false) {
+    : freeview_display(ui_), zoomed(false), zoom_level(0), use_hqsfx(false) {
     add_pos = vector3(0, 0, 8); // fixme, depends on sub
     aboard = true;
     withunderwaterweapons = false; // they can be seen when scope is partly below water surface, fixme
@@ -187,25 +188,31 @@ void sub_periscope_display::process_input(class game &gm, const game_event &even
     switch (event.type) {
     case event_type::KEY_DOWN:
         if (ui.get_config().getkey(KEY_TOGGLE_ZOOM_OF_VIEW).equal(event.keysym)) {
-            zoomed = !zoomed;
+            zoom_level = (zoom_level == 0) ? 2 : 0;
+            zoomed = (zoom_level > 0);
         }
         break;
     case event_type::MOUSE_WHEEL:
         if (event.wheel_y > 0) {
-            zoomed = true;
+            zoom_level = std::min(2, zoom_level + 1);
+            zoomed = (zoom_level > 0);
         } else if (event.wheel_y < 0) {
-            zoomed = false;
+            zoom_level = std::max(0, zoom_level - 1);
+            zoomed = (zoom_level > 0);
         }
         return;
     case event_type::MOUSE_BUTTON_DOWN:
         if (event.button_button == MOUSE_BUTTON_WHEELUP) {
-            zoomed = true;
+            zoom_level = std::min(2, zoom_level + 1);
+            zoomed = (zoom_level > 0);
             return;
         } else if (event.button_button == MOUSE_BUTTON_WHEELDOWN) {
-            zoomed = false;
+            zoom_level = std::max(0, zoom_level - 1);
+            zoomed = (zoom_level > 0);
             return;
         } else if (event.button_button == MOUSE_BUTTON_MIDDLE) {
-            zoomed = !zoomed;
+            zoom_level = (zoom_level == 0) ? 2 : 0;
+            zoomed = (zoom_level > 0);
             return;
         }
         break;

@@ -9,6 +9,39 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r18 (2026-10-14)
+-------------------------------------
+* ZOOM FIXES ACROSS ALL VIEWS & MULTI-LANGUAGE UI TEXT FITTING:
+  - Navigation Map Zooming (F5):
+    Fixed map jumping when zooming with mouse wheel. Zooming is now rock-solid centered on the
+    current view center (512, 384) without mapoffset translation jumps.
+  - Multi-Step Responsive Periscope (F2) & UZO (F3) Zoom:
+    Implemented natural multi-step zoom:
+    * 1.5x magnification (50° wide-angle view)
+    * 3.0x magnification (25° intermediate telephoto)
+    * 6.0x magnification (13.3° maximum telephoto)
+    Scrolling wheel up steps smoothly through 1.5x -> 3.0x -> 6.0x; scrolling down steps back.
+    Toggle key ('Z'/'Y') and middle-click toggle directly between 1.5x and 6.0x.
+  - Bridge Binoculars (F4) Wheel Zoom:
+    Scrolling mouse wheel up on bridge raises binoculars; scrolling down lowers binoculars.
+  - UI Text Box Fitting & Non-English Translations:
+    1) Widget text box clipping & auto-scaling: In widget_text::draw(), passed maxheight bounding
+       to print_wrapped so multiline text (e.g. mission briefings) strictly respects sunken box height
+       and never bleeds over buttons below. If text is too long with 12pt font, widget_text automatically
+       scales to 10pt font to fit.
+    2) Button & Checkbox Auto-Fitting: If button or checkbox label text in German, French, Italian,
+       Spanish, Czech, Polish, etc. exceeds container width, it automatically switches to 10pt font.
+    3) List Entry Auto-Fitting: List items that exceed available width automatically scale to 10pt.
+    4) Video Options Menu Layout: Expanded label column from 200px to 230px and set list column to 170px
+       so localized labels ("Anisotrope Filterstufe", "Kantenglättungsstufe", etc.) fit cleanly without overlap.
+    5) Theme Font Optimization: Switched default menu theme font from wide 14pt (font_vtremington14) to
+       clean 12pt (font_vtremington12), preserving all Latin-1 accented and umlaut characters while
+       giving 20% more horizontal room.
+    6) German Label Polishing: Cleaned up "Überstrahlung" and "Vertikale Synchronisation" in common.csv.
+    7) OK / Cancel Dialog Button Sizing: Dynamically compute button widths from translated text length.
+    8) Horizontal Menu Adjustment: Added fallback proportional layout when button labels are long.
+
+
 Version 0.3.900-mesa-r17 (2026-10-14)
 -------------------------------------
 * NAVIGATION MAP SCROLLING & PANNING, MOUSE WHEEL ZOOM ACROSS MAP, PERISCOPE & UZO:
@@ -328,6 +361,37 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r18 (14.10.2026)
+----------------------------------------
+* ZOOM-KORREKTUREN IN ALLEN ANSICHTEN & SCHRIFTANPASSUNG FUER ALLE SPRACHEN:
+  - Seekarten-Zoom (F5):
+    Fehler behoben, durch den die Seekarte beim Zoomen mit dem Mausrad unkontrolliert um Kilometer
+    in den Ozean sprang. Das Zoomen ist nun stabil auf die Bildmitte zentriert ohne Koordinatensprung.
+  - Mehrstufiger Periskop- (F2) und UZO- (F3) Zoom:
+    Natürlichen 3-Stufen-Zoom eingebaut:
+    * Stufe 0: 1.5x Vergrößerung (50° Weitwinkel)
+    * Stufe 1: 3.0x Vergrößerung (25° Tele)
+    * Stufe 2: 6.0x Vergrößerung (13.3° Maximalvergrößerung)
+    Mausrad nach oben schaltet geschmeidig 1.5x -> 3.0x -> 6.0x durch; Mausrad nach unten zoomt zurück.
+    Zoom-Taste ('Z'/'Y') und mittlere Maustaste schalten direkt zwischen 1.5x und 6.0x um.
+  - Brücken-Fernglas (F4) per Mausrad:
+    Mausrad nach oben aktiviert das Fernglas auf der Brücke; Mausrad nach unten senkt es wieder ab.
+  - Text- und Schriftbox-Anpassung für Deutsch, Französisch und andere Sprachen:
+    1) Textboxen (widget_text): Strikte Höhenbegrenzung (maxheight) in widget_text::draw() aktiviert,
+       damit mehrzeilige Missionsbeschreibungen nicht mehr über den unteren Kastenrand auf die Schaltflächen
+       laufen. Zu lange Texte skalieren bei Bedarf automatisch auf 10pt Schrift herunter.
+    2) Automatische Schaltflächen- & Checkbox-Skalierung: Zu lange Texte in Buttons oder Checkboxen
+       (z.B. "Vertikale Synchronisation", "Zurück zum vorherigen Menü") skalieren automatisch auf 10pt.
+    3) Listen-Einträge: Zu breite Listeneinträge nutzen automatisch die kompaktere 10pt Schrift.
+    4) Grafikoptionen-Layout optimiert: Beschriftungsspalte von 200px auf 230px verbreitert (Listen 170px),
+       damit "Anisotrope Filterstufe", "Kantenglättungsstufe" etc. nicht mit Auswahllisten kollidieren.
+    5) Theme-Schriftart: Auf font_vtremington12 (12pt) umgestellt – alle Umlaute und Akzente bleiben
+       perfekt erhalten, bei 20% mehr horizontalem Platz für alle Menüs.
+    6) Deutsche Texte poliert: "Überstrahlung" statt "Überstrahlung (Bloom)" und sauberes "Vertikale Synchronisation".
+    7) Dialog-Schaltflächen: OK- und Abbrechen-Buttons passen ihre Breite dynamisch an die übersetzte Textlänge an.
+    8) Horizontale Menüs: Proportionale Ausrichtung eingebaut, falls Buttons durch lange Übersetzungen voll belegt sind.
+
 
 Version 0.3.900-mesa-r17 (14.10.2026)
 ---------------------------------------

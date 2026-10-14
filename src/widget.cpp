@@ -740,7 +740,6 @@ int widget::run(unsigned timeout, bool do_stacking, widget *focussed_at_begin) {
     if (myparent)
         myparent->disable();
     closeme = false;
-    retval = -1;
     if (!do_stacking)
         unref_all_backgrounds(this);
     // we should encapsulate the code from here in a try call, to make changes reversible on error.
@@ -781,8 +780,6 @@ int widget::run(unsigned timeout, bool do_stacking, widget *focussed_at_begin) {
     if (myparent)
         myparent->enable();
     parent = myparent;
-    if (sys().is_quit_requested())
-        return 0;
     return retval;
 }
 
