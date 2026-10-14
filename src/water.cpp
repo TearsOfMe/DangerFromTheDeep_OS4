@@ -836,12 +836,10 @@ void water::display(const vector3 &viewpos, double max_view_dist, bool under_wat
             vertex_data[vertex_data_ptr + 6] = 0.0f; // no foam
             vertex_data_ptr += nr_vert_attr;
         }
-        // finish: upload from host-cached vertex_cache to GPU VBO (no pipeline stalls)
-        if (vertices.get_map_size() != total_floats * 4) {
-            vertices.init_data(total_floats * 4, vertex_data, GL_DYNAMIC_DRAW);
-        } else {
-            vertices.init_sub_data(0, total_floats * 4, vertex_data);
-        }
+        // finish: upload from host-cached vertex_cache to GPU VBO with buffer orphaning
+        // Calling init_data (glBufferData) allows the driver to reallocate backing memory
+        // without waiting for in-flight GPU reads of previous frames.
+        vertices.init_data(total_floats * 4, vertex_data, GL_DYNAMIC_DRAW);
         vertices.unbind();
     }
 

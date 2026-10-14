@@ -144,9 +144,8 @@ void display_create_window(const char* caption, int w, int h, bool fullscreen,
     dftd_startup_log("OpenGL context created successfully.");
     s_has_gl_context = true;
 
-    if (vsync != 0) {
-        SDL_GL_SetSwapInterval(vsync);
-    }
+    int ret_vsync = SDL_GL_SetSwapInterval(vsync);
+    dftd_startup_log("SDL_GL_SetSwapInterval(%d) returned: %d (error: %s)", vsync, ret_vsync, SDL_GetError());
 
     *out_window = win;
     *out_glcontext = ctx;
@@ -240,7 +239,8 @@ void display_swap_buffers(void* window) {
 }
 
 void display_set_swap_interval(int interval) {
-    SDL_GL_SetSwapInterval(interval);
+    int ret = SDL_GL_SetSwapInterval(interval);
+    dftd_startup_log("display_set_swap_interval(%d) returned: %d (error: %s)", interval, ret, SDL_GetError());
 }
 
 const char* display_get_error() {

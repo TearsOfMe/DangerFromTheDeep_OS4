@@ -9,6 +9,33 @@
 [EN] ENGLISH
 ================================================================================
 
+Version 0.3.900-mesa-r16 (2026-10-14)
+-------------------------------------
+* GRAPHICS OPTIMIZATION, VSYNC RUNTIME CONTROL & CONFIGURABLE FPS LIMITER:
+  - VSync and 60 FPS lock analysis:
+    1) Clarified framerate behavior: Danger from the Deep previously defaulted to a hardcoded 60 FPS
+       software limiter (maxfps = 60 in subsim.cpp).
+    2) Fixed VSync hardware disabling: Previously, SDL_GL_SetSwapInterval was only invoked if vsync != 0,
+       meaning when VSync was unticked in settings, swap interval 0 was never passed to the driver.
+       Because Mesa/Warp3D Nova defaults to swap interval 1, VSync remained permanently active in hardware.
+       Now SDL_GL_SetSwapInterval is always explicitly invoked (0 for disabled, 1 for enabled) on startup
+       and dynamically when toggled in options.
+    3) Eliminated artificial micro-stutters and 30-FPS frame drops when VSync is ON:
+       Previously, system::swap_buffers() called display_delay(1) and software limiter sleeps even when
+       VSync was active. Because display_swap_buffers already synchronizes with monitor refresh (vblank),
+       additional software sleeps caused AmigaOS timer tick overruns, missing the 16.6ms window and
+       artificially cutting the framerate down to 30 FPS. Software delay is now bypassed when VSync is ON.
+    4) Configurable Max FPS Limiter in GUI and Config:
+       Added "Max. FPS (Limiter)" selection list in Video Options (Unlimited (0), 30, 60, 75, 120, 144 FPS)
+       and registered "max_fps" in dftd.cfg. Supported via CLI: --maxfps <N>, --vsync, --novsync.
+  - Graphics rendering pipeline optimization (Dynamic Water VBO):
+    Replaced glBufferSubData with buffer orphaning (glBufferData with GL_DYNAMIC_DRAW) every frame for
+    the dynamic ocean vertex buffer. In Mesa Gallium / Warp3D Nova, glBufferSubData causes GPU-CPU
+    synchronization stalls when updating a buffer currently referenced by in-flight draw commands. Buffer
+    orphaning allows Mesa driver memory reallocation without waiting for previous frame GPU completion.
+  - Recompiled with GCC 15 (adtools 15.3.0) inside Docker container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
+
 Version 0.3.900-mesa-r15 (2026-10-14)
 -------------------------------------
 * FULL ALTIVEC HARDWARE ACCELERATION ENABLED & RESTORED (AMIGAONE X1000):
@@ -275,6 +302,34 @@ Version 0.3.900-mesa-r1 & r2 (2026-10-09)
 ================================================================================
 [DE] DEUTSCH
 ===============================================================================
+
+Version 0.3.900-mesa-r16 (14.10.2026)
+---------------------------------------
+* GRAFIK-OPTIMIERUNG, ECHTE VSYNC-STEUERUNG & KONFIGURIERBARER FPS-LIMITER:
+  - Analyse von 60 FPS Lock und VSync:
+    1) Framerate-Verhalten aufgeklaert: Danger from the Deep hatte standardmaessig einen fest verdrahteten
+       60-FPS-Software-Limiter (maxfps = 60 in subsim.cpp) aktiv.
+    2) Echtes VSync-Deaktivieren im Grafiktreiber korrigiert: Zuvor wurde SDL_GL_SetSwapInterval nur bei
+       vsync != 0 aufgerufen. Wenn VSync in den Optionen abgewaehlt war, wurde Swap-Intervall 0 nie an den
+       Treiber uebergeben. Da Mesa/Warp3D Nova standardmaessig Swap-Intervall 1 nutzt, war VSync hardwareseitig
+       stets aktiv. Nun wird SDL_GL_SetSwapInterval beim Start und bei Aenderung im Optionsmenue immer explizit
+       aufgerufen (0 fuer Aus, 1 fuer An).
+    3) Ruckler und 30-FPS-Einbrueche bei aktivem VSync beseitigt:
+       Zuvor rief system::swap_buffers() auch bei aktivem VSync display_delay(1) und Software-Limiter-Pausen auf.
+       Da der Buffer-Swap bereits exakt auf den VBlank des Monitors (60 Hz) wartet, fuehrten zusaetzliche
+       Task-Sleeps auf AmigaOS zum Verpassen des 16.6ms-Zeitfensters und halbierten die Framerate auf 30 FPS.
+       Bei aktivem Hardware-VSync werden kuenstliche Software-Sleeps nun komplett umgangen.
+    4) Frei konfigurierbarer FPS-Limiter in Optionen und dftd.cfg:
+       Neues Auswahlfeld "Max. FPS (Limiter)" im Videomenue (Unbegrenzt (0), 30, 60, 75, 120, 144 FPS)
+       sowie Speicherung in dftd.cfg ("max_fps"). Unterstuetzung via CLI: --maxfps <N>, --vsync, --novsync.
+  - Rendering-Pipeline-Optimierung (Dynamisches Wasser-VBO):
+    glBufferSubData durch Buffer-Orphaning (glBufferData mit GL_DYNAMIC_DRAW) beim Frame-Update der
+    dynamischen Ozean-Vertices ersetzt. In Mesa Gallium / Warp3D Nova fuehrte glBufferSubData zu haeufigen
+    GPU-CPU-Wartepausen (Pipeline-Stalls), wenn ein Puffer aktualisiert wurde, der noch von vorherigen
+    Draw-Calls gelesen wurde. Buffer-Orphaning ermoeglicht dem Treiber sofortige Speicherneuzuweisung ohne
+    Warten auf die GPU.
+  - Kompiliert mit GCC 15 (adtools 15.3.0) im Docker-Container 25dd55438f8ececa6d079b7bad9ec1c9ed3e8f11f29e372644287eadd7d33141.
+
 
 Version 0.3.900-mesa-r15 (14.10.2026)
 --------------------------------------

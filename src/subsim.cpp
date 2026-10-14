@@ -1539,6 +1539,9 @@ void menu_opt_video() {
     widget_list *anti_aliasing_level = new widget_list(right + (wd / 2), y + 320, wd / 2, 80);
     widget_text *anti_aliasing_level_txt = new widget_text(right, y + 320, wd / 2, 20, texts::get(723));
 
+    widget_list *w_max_fps = new widget_list(right + (wd / 2), y + 420, wd / 2, 80);
+    widget_text *w_max_fps_txt = new widget_text(right, y + 420, wd / 2, 20, is_de ? "Max. FPS (Limiter)" : "Max FPS Limit");
+
     widget_button *wcb = new widget_caller_arg_button<widget, void (widget::*)(int), int>(&w, &widget::close, 0, x, y + 420, wd, 40, texts::get(20));
 
     // insert values
@@ -1551,6 +1554,21 @@ void menu_opt_video() {
     w_postprocessing->append_entry(texts::get(716));
     w_postprocessing->append_entry(texts::get(717));
     w_postprocessing->set_selected(config.geti("postprocessing"));
+
+    w_max_fps->append_entry(is_de ? "Unbegrenzt (0)" : "Unlimited (0)");
+    w_max_fps->append_entry("30 FPS");
+    w_max_fps->append_entry(is_de ? "60 FPS (Standard)" : "60 FPS (Default)");
+    w_max_fps->append_entry("75 FPS");
+    w_max_fps->append_entry("120 FPS");
+    w_max_fps->append_entry("144 FPS");
+
+    int cur_mf = config.geti("max_fps");
+    if (cur_mf <= 0) w_max_fps->set_selected(0);
+    else if (cur_mf <= 30) w_max_fps->set_selected(1);
+    else if (cur_mf <= 60) w_max_fps->set_selected(2);
+    else if (cur_mf <= 75) w_max_fps->set_selected(3);
+    else if (cur_mf <= 120) w_max_fps->set_selected(4);
+    else w_max_fps->set_selected(5);
 
     float max_ani = 1.0;
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_ani);
@@ -1596,6 +1614,9 @@ void menu_opt_video() {
     w.add_child(anti_aliasing_level);
     w.add_child(anti_aliasing_level_txt);
 
+    w.add_child(w_max_fps);
+    w.add_child(w_max_fps_txt);
+
     w.add_child(wcb);
 
     w.run(0, false);
@@ -1612,7 +1633,25 @@ void menu_opt_video() {
         sys().set_fill_widescreen(new_fill_widescreen);
     }
 
-    config.set("vsync", vsync->is_checked());
+    bool old_vsync = config.getb("vsync");
+    bool new_vsync = vsync->is_checked();
+    config.set("vsync", new_vsync);
+    if (new_vsync != old_vsync) {
+        sys().set_vertical_sync(new_vsync);
+    }
+
+    unsigned chosen_fps = 60;
+    switch (w_max_fps->get_selected()) {
+    case 0: chosen_fps = 0; break;
+    case 1: chosen_fps = 30; break;
+    case 2: chosen_fps = 60; break;
+    case 3: chosen_fps = 75; break;
+    case 4: chosen_fps = 120; break;
+    case 5: chosen_fps = 144; break;
+    default: chosen_fps = 60; break;
+    }
+    config.set("max_fps", int(chosen_fps));
+    sys().set_max_fps(chosen_fps);
 
     config.set("terrain_detail", terrain_lod->get_curr_value());
     config.set("use_compressed_textures", tex_compress->is_checked());
@@ -1866,6 +1905,9 @@ int mymain(list<string> &args) {
     string cmdmissionfilename;
     bool runeditor = false;
     unsigned maxfps = 60;
+    bool maxfps_overridden = false;
+    bool vsync_cli_override = false;
+    bool vsync_cli_val = false;
     bool override_lang = false;
     bool use_sound = true;
     date editor_start_date(1939, 9, 1);
@@ -2018,19 +2060,23 @@ int mymain(list<string> &args) {
                 override_lang = true;
                 ++it;
             }
-#if !(defined(WIN32) || (defined(__APPLE__) && defined(__MACH__)) || defined(__amigaos4__))
         } else if (*it == "--vsync") {
-            if (putenv((char *)"__GL_SYNC_TO_VBLANK=1") < 0)
-                cout << "ERROR: vsync setting failed.\n";
+            vsync_cli_override = true;
+            vsync_cli_val = true;
             maxfps = 0;
-#endif
+            maxfps_overridden = true;
+        } else if (*it == "--novsync") {
+            vsync_cli_override = true;
+            vsync_cli_val = false;
         } else if (*it == "--maxfps") {
             list<string>::iterator it2 = it;
             ++it2;
             if (it2 != args.end()) {
                 int mf = atoi(it2->c_str());
-                if (mf >= 0)
+                if (mf >= 0) {
                     maxfps = unsigned(mf);
+                    maxfps_overridden = true;
+                }
                 ++it;
             }
         } else {
@@ -2066,6 +2112,7 @@ int mymain(list<string> &args) {
     mycfg.register_option("hint_mipmap", 0);
     mycfg.register_option("hint_texture_compression", 0);
     mycfg.register_option("vsync", false);
+    mycfg.register_option("max_fps", 60);
     mycfg.register_option("show_fps", false);
     mycfg.register_option("fill_widescreen", true);
     mycfg.register_option("water_detail", 128);
@@ -2219,17 +2266,24 @@ int mymain(list<string> &args) {
     params.hint_fog = mycfg.geti("hint_fog");
     params.hint_mipmap = mycfg.geti("hint_mipmap");
     params.hint_texture_compression = mycfg.geti("hint_texture_compression");
-    params.vertical_sync = mycfg.getb("vsync");
+    bool vsync_active = mycfg.getb("vsync");
+    if (vsync_cli_override) {
+        vsync_active = vsync_cli_val;
+    }
+    params.vertical_sync = vsync_active;
     params.fill_widescreen = mycfg.getb("fill_widescreen");
 
     texture::use_compressed_textures = mycfg.getb("use_compressed_textures");
     texture::use_anisotropic_filtering = mycfg.getb("use_ani_filtering");
     texture::anisotropic_level = mycfg.getf("anisotropic_level");
-    dftd_startup_log("Initializing display system (%ux%u, fullscreen=%d)...", res_x, res_y, fullscreen ? 1 : 0);
+    dftd_startup_log("Initializing display system (%ux%u, fullscreen=%d, vsync=%d)...", res_x, res_y, fullscreen ? 1 : 0, vsync_active ? 1 : 0);
     system::create_instance(new class system(params));
     dftd_startup_log("Display system initialized successfully.");
     sys().set_screenshot_directory(savegamedirectory);
     sys().set_res_2d(1024, 768);
+    if (!maxfps_overridden) {
+        maxfps = unsigned(mycfg.geti("max_fps"));
+    }
     sys().set_max_fps(maxfps);
     font_arial = &sys().register_font(get_font_dir(), "font_arial");
     bool is_de = (texts::get_language_code() == "de");

@@ -453,13 +453,21 @@ unsigned long system::millisec() {
     return display_get_ticks() - time_passed_while_sleeping;
 }
 
+void system::set_vertical_sync(bool vsync) {
+    params.vertical_sync = vsync;
+    display_set_swap_interval(vsync ? 1 : 0);
+}
+
 void system::swap_buffers() {
     if (show_console) {
         draw_console();
     }
     if (screen)
         display_swap_buffers(screen);
-    if (maxfps > 0) {
+
+    // If VSync is active, the GPU / display driver already synchronizes frames with the monitor refresh rate.
+    // Adding software sleep delay on top of hardware VSync causes dropped frames and micro-stutters.
+    if (!params.vertical_sync && maxfps > 0) {
         unsigned tm = millisec();
         unsigned d = tm - last_swap_time;
         unsigned dmax = 1000 / maxfps;
@@ -468,17 +476,10 @@ void system::swap_buffers() {
             last_swap_time = tm + dmax - d;
         } else {
             last_swap_time = tm;
-#ifdef __amigaos4__
-            // Yield CPU slice to other AmigaOS tasks (audio task, input handler, drivers)
-            display_delay(1);
-#endif
         }
+    } else {
+        last_swap_time = millisec();
     }
-#ifdef __amigaos4__
-    else {
-        display_delay(1);
-    }
-#endif
 }
 
 list<game_event> system::poll_event_queue() {

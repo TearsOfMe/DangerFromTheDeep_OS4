@@ -129,6 +129,10 @@ class system : public singleton<class system> {
 
     // set maximum fps rate (0 for unlimited)
     void set_max_fps(unsigned fps) { maxfps = fps; }
+    unsigned get_max_fps() const { return maxfps; }
+
+    bool get_vertical_sync() const { return params.vertical_sync; }
+    void set_vertical_sync(bool vsync);
 
     // give FOV X in degrees, aspect (w/h), znear and zfar.
     void gl_perspective_fovx(double fovx, double aspect, double znear, double zfar);
